@@ -3,38 +3,102 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
+// =======================
+// ENUMS
+// =======================
+enum UserRole {
+  USER
+  BREEDER
+  NGO
+  SERVICE_PROVIDER
+  ADMIN
+}
+
+enum SubscriptionTier {
+  FREE
+  PRO
+  ENTERPRISE
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum ListingStatus {
+  AVAILABLE
+  ADOPTED
+  SOLD
+  HIDDEN
+}
+
+enum ListingType {
+  ADOPTION
+  SALE
+  STUD
+}
+
+enum ServiceType {
+  VET
+  GROOMER
+  TRAINER
+  WALKER
+  SITTER
+}
+
+// =======================
+// CORE USER & PROFILES
+// =======================
+
 model User {
-  id                  String            @id @default(uuid())
-  email               String            @unique
-  password            String
-  role                String            @default("USER") // 'USER' or 'ADMIN'
-  subscriptionType    String            @default("FREE") // 'FREE', 'PRO', 'ENTERPRISE'
-  subExpiresAt        DateTime?
-  profiles            DogProfile[]
-  breederProfile      BreederProfile?
-  adoptionRequests    AdoptionRequest[]
-  appointments        Appointment[]     @relation("UserAppointments")
-  breederAppointments Appointment[]     @relation("BreederAppointments")
-  sentMessages        Message[]         @relation("SentMessages")
-  receivedMessages    Message[]         @relation("ReceivedMessages")
-  favorites           Favorite[]
-  reports             Report[]          @relation("Reporter")
-  createdAt           DateTime          @default(now())
-  updatedAt           DateTime          @updatedAt
+  id               String            @id @default(uuid())
+  email            String            @unique
+  password         String
+  firstName        String?
+  lastName         String?
+  phone            String?
+  avatarUrl        String?
+  role             UserRole          @default(USER)
+  subscriptionTier SubscriptionTier  @default(FREE)
+  subExpiresAt     DateTime?
+  isVerified       Boolean           @default(false)
+  
+  // Relations
+  profiles         DogProfile[]
+  breederProfile   BreederProfile?
+  ngoProfile       NgoProfile?
+  serviceProfile   ServiceProviderProfile?
+  
+  posts            Post[]
+  comments         Comment[]
+  likes            Like[]
+  followers        Follower[]        @relation("UserFollowers")
+  following        Follower[]        @relation("UserFollowing")
+  
+  adoptionRequests AdoptionRequest[]
+  
+  // Messages
+  sentMessages     Message[]         @relation("SentMessages")
+  receivedMessages Message[]         @relation("ReceivedMessages")
+  
+  favorites        Favorite[]
+  reportsMade      Report[]          @relation("Reporter")
+  
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
 }
 
 model BreederProfile {
   id          String   @id @default(uuid())
   userId      String   @unique
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  companyName String
+  kennelName  String
   licenseNo   String?
   address     String?
-  phone       String?
   website     String?
   rating      Float    @default(0.0)
   verified    Boolean  @default(false)
@@ -42,27 +106,90 @@ model BreederProfile {
   updatedAt   DateTime @updatedAt
 }
 
+model NgoProfile {
+  id              String   @id @default(uuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organizationName String
+  registrationNo  String?
+  address         String?
+  website         String?
+  verified        Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model ServiceProviderProfile {
+  id          String      @id @default(uuid())
+  userId      String      @unique
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessName String
+  serviceType ServiceType
+  address     String?
+  experienceYears Int?
+  rating      Float       @default(0.0)
+  verified    Boolean     @default(false)
+  reviews     ServiceReview[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model ServiceReview {
+  id          String                 @id @default(uuid())
+  providerId  String
+  provider    ServiceProviderProfile @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  reviewerId  String
+  rating      Int
+  comment     String?                @db.Text
+  createdAt   DateTime               @default(now())
+}
+
+// =======================
+// DOGS & BREEDS
+// =======================
+
+model Breed {
+  id              String       @id @default(uuid())
+  name            String       @unique
+  origin          String?
+  sizeCategory    String?      // e.g., Small, Medium, Large, Giant
+  lifeSpan        String?
+  temperament     String?
+  imageUrl        String?
+  dogs            DogProfile[]
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+}
+
 model DogProfile {
   id               String            @id @default(uuid())
   name             String
-  breed            String
-  age              Int
-  gender           String            @default("MALE") // 'MALE', 'FEMALE'
-  weight           Float?
+  breedId          String?
+  breed            Breed?            @relation(fields: [breedId], references: [id])
+  ageMonths        Int
+  gender           Gender            @default(MALE)
+  weightKg         Float?
   color            String?
   price            Float             @default(0.0)
   description      String            @db.Text
   vaccinated       Boolean           @default(false)
-  registered       Boolean           @default(false) // Pedigree registration status
-  status           String            @default("AVAILABLE") // 'AVAILABLE', 'ADOPTED', 'SOLD'
-  listingType      String            @default("ADOPTION") // 'ADOPTION' or 'SALE'
+  registered       Boolean           @default(false)
+  status           ListingStatus     @default(AVAILABLE)
+  listingType      ListingType       @default(ADOPTION)
   featured         Boolean           @default(false)
+  
+  // AI Metrics
+  aiPredictedPrice Float?
+  aiBreedConfidence Float?
+  
   ownerId          String
   owner            User              @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  
   images           Image[]
   adoptionRequests AdoptionRequest[]
-  appointments     Appointment[]
   favorites        Favorite[]
+  showParticipations ShowParticipant[]
+  
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 }
@@ -72,8 +199,110 @@ model Image {
   url       String
   profile   DogProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
   profileId String
+  isPrimary Boolean    @default(false)
   createdAt DateTime   @default(now())
 }
+
+// =======================
+// SOCIAL NETWORK
+// =======================
+
+model Follower {
+  id          String   @id @default(uuid())
+  followerId  String
+  follower    User     @relation("UserFollowing", fields: [followerId], references: [id], onDelete: Cascade)
+  followingId String
+  following   User     @relation("UserFollowers", fields: [followingId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  
+  @@unique([followerId, followingId])
+}
+
+model Post {
+  id        String    @id @default(uuid())
+  authorId  String
+  author    User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  imageUrl  String?
+  videoUrl  String?
+  content   String    @db.Text
+  likes     Like[]
+  comments  Comment[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+}
+
+model Like {
+  id        String   @id @default(uuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  
+  @@unique([postId, authorId])
+}
+
+// =======================
+// DOG SHOWS
+// =======================
+
+model DogShow {
+  id           String            @id @default(uuid())
+  name         String
+  description  String?           @db.Text
+  date         DateTime
+  location     String
+  status       String            @default("UPCOMING") // UPCOMING, ONGOING, COMPLETED
+  participants ShowParticipant[]
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+}
+
+model ShowParticipant {
+  id        String     @id @default(uuid())
+  showId    String
+  show      DogShow    @relation(fields: [showId], references: [id], onDelete: Cascade)
+  dogId     String
+  dog       DogProfile @relation(fields: [dogId], references: [id], onDelete: Cascade)
+  status    String     @default("REGISTERED") // REGISTERED, COMPLETED, DISQUALIFIED
+  award     String?
+  createdAt DateTime   @default(now())
+  
+  @@unique([showId, dogId])
+}
+
+// =======================
+// LOST & FOUND
+// =======================
+
+model LostFoundReport {
+  id             String   @id @default(uuid())
+  reporterId     String
+  dogName        String?
+  lastSeenLoc    String
+  lastSeenDate   DateTime
+  description    String   @db.Text
+  imageUrl       String?
+  status         String   @default("LOST") // LOST, FOUND, RESOLVED
+  aiMatchScore   Float?
+  contactPhone   String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+// =======================
+// UTILITIES
+// =======================
 
 model AdoptionRequest {
   id        String     @id @default(uuid())
@@ -81,24 +310,10 @@ model AdoptionRequest {
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   dogId     String
   dog       DogProfile @relation(fields: [dogId], references: [id], onDelete: Cascade)
-  status    String     @default("PENDING") // 'PENDING', 'APPROVED', 'REJECTED'
+  status    String     @default("PENDING") // PENDING, APPROVED, REJECTED
   notes     String?    @db.Text
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
-}
-
-model Appointment {
-  id          String     @id @default(uuid())
-  userId      String
-  user        User       @relation("UserAppointments", fields: [userId], references: [id], onDelete: Cascade)
-  breederId   String
-  breeder     User       @relation("BreederAppointments", fields: [breederId], references: [id], onDelete: Cascade)
-  dogId       String
-  dog         DogProfile @relation(fields: [dogId], references: [id], onDelete: Cascade)
-  dateTime    DateTime
-  status      String     @default("PENDING") // 'PENDING', 'CONFIRMED', 'CANCELLED'
-  notes       String?    @db.Text
-  createdAt   DateTime   @default(now())
 }
 
 model Message {
@@ -127,9 +342,9 @@ model Report {
   id         String   @id @default(uuid())
   reporterId String
   reporter   User     @relation("Reporter", fields: [reporterId], references: [id], onDelete: Cascade)
-  targetType String   // 'DOG' or 'USER'
+  targetType String   // DOG, USER, POST
   targetId   String
   reason     String   @db.Text
-  status     String   @default("PENDING") // 'PENDING', 'RESOLVED', 'DISMISSED'
+  status     String   @default("PENDING") // PENDING, RESOLVED, DISMISSED
   createdAt  DateTime @default(now())
 }
