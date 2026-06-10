@@ -1,0 +1,135 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                  String            @id @default(uuid())
+  email               String            @unique
+  password            String
+  role                String            @default("USER") // 'USER' or 'ADMIN'
+  subscriptionType    String            @default("FREE") // 'FREE', 'PRO', 'ENTERPRISE'
+  subExpiresAt        DateTime?
+  profiles            DogProfile[]
+  breederProfile      BreederProfile?
+  adoptionRequests    AdoptionRequest[]
+  appointments        Appointment[]     @relation("UserAppointments")
+  breederAppointments Appointment[]     @relation("BreederAppointments")
+  sentMessages        Message[]         @relation("SentMessages")
+  receivedMessages    Message[]         @relation("ReceivedMessages")
+  favorites           Favorite[]
+  reports             Report[]          @relation("Reporter")
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+}
+
+model BreederProfile {
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyName String
+  licenseNo   String?
+  address     String?
+  phone       String?
+  website     String?
+  rating      Float    @default(0.0)
+  verified    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model DogProfile {
+  id               String            @id @default(uuid())
+  name             String
+  breed            String
+  age              Int
+  gender           String            @default("MALE") // 'MALE', 'FEMALE'
+  weight           Float?
+  color            String?
+  price            Float             @default(0.0)
+  description      String            @db.Text
+  vaccinated       Boolean           @default(false)
+  registered       Boolean           @default(false) // Pedigree registration status
+  status           String            @default("AVAILABLE") // 'AVAILABLE', 'ADOPTED', 'SOLD'
+  listingType      String            @default("ADOPTION") // 'ADOPTION' or 'SALE'
+  featured         Boolean           @default(false)
+  ownerId          String
+  owner            User              @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  images           Image[]
+  adoptionRequests AdoptionRequest[]
+  appointments     Appointment[]
+  favorites        Favorite[]
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+}
+
+model Image {
+  id        String     @id @default(uuid())
+  url       String
+  profile   DogProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  profileId String
+  createdAt DateTime   @default(now())
+}
+
+model AdoptionRequest {
+  id        String     @id @default(uuid())
+  userId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dogId     String
+  dog       DogProfile @relation(fields: [dogId], references: [id], onDelete: Cascade)
+  status    String     @default("PENDING") // 'PENDING', 'APPROVED', 'REJECTED'
+  notes     String?    @db.Text
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+model Appointment {
+  id          String     @id @default(uuid())
+  userId      String
+  user        User       @relation("UserAppointments", fields: [userId], references: [id], onDelete: Cascade)
+  breederId   String
+  breeder     User       @relation("BreederAppointments", fields: [breederId], references: [id], onDelete: Cascade)
+  dogId       String
+  dog         DogProfile @relation(fields: [dogId], references: [id], onDelete: Cascade)
+  dateTime    DateTime
+  status      String     @default("PENDING") // 'PENDING', 'CONFIRMED', 'CANCELLED'
+  notes       String?    @db.Text
+  createdAt   DateTime   @default(now())
+}
+
+model Message {
+  id         String   @id @default(uuid())
+  senderId   String
+  sender     User     @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  receiverId String
+  receiver   User     @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+  content    String   @db.Text
+  read       Boolean  @default(false)
+  createdAt  DateTime @default(now())
+}
+
+model Favorite {
+  id        String     @id @default(uuid())
+  userId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dogId     String
+  dog       DogProfile @relation(fields: [dogId], references: [id], onDelete: Cascade)
+  createdAt DateTime   @default(now())
+
+  @@unique([userId, dogId])
+}
+
+model Report {
+  id         String   @id @default(uuid())
+  reporterId String
+  reporter   User     @relation("Reporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  targetType String   // 'DOG' or 'USER'
+  targetId   String
+  reason     String   @db.Text
+  status     String   @default("PENDING") // 'PENDING', 'RESOLVED', 'DISMISSED'
+  createdAt  DateTime @default(now())
+}
