@@ -1,0 +1,11 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const breed_controller_1 = require("../controllers/breed.controller");
+const auth_middleware_1 = require("../middlewares/auth.middleware");
+const router = (0, express_1.Router)();
+router.get('/fci-groups', breed_controller_1.getFciGroups);
+router.post('/fci-groups', auth_middleware_1.authenticate, (0, auth_middleware_1.authorize)(['Admin']), breed_controller_1.createFciGroup);
+router.get('/', breed_controller_1.getBreeds);
+router.post('/', auth_middleware_1.authenticate, (0, auth_middleware_1.authorize)(['Admin']), breed_controller_1.createBreed);
+exports.default = router;

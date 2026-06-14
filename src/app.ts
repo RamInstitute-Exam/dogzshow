@@ -1,21 +1,30 @@
-import express, { Express, Request, Response } from 'express';
+import express, { Express, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
-import authRoutes from './routes/auth.routes';
-import dogRoutes from './routes/dog.routes';
-import contactRoutes from './routes/contact.routes';
-import adminRoutes from './routes/admin.routes';
-import breederRoutes from './routes/breeder.routes';
-import subscriptionRoutes from './routes/subscription.routes';
-import adoptionRoutes from './routes/adoption.routes';
-import messageRoutes from './routes/message.routes';
-import appointmentRoutes from './routes/appointment.routes';
-import moderationRoutes from './routes/moderation.routes';
+import helmet from 'helmet';
+import compression from 'compression';
+import cookieParser from 'cookie-parser';
+import morgan from 'morgan';
+import rateLimit from 'express-rate-limit';
+import path from 'path';
+
+// Import central router
+import apiRoutes from './routes/index';
 
 const app: Express = express();
+
+// Security and Rate Limiting
+app.use(helmet());
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  message: 'Too many requests from this IP, please try again later.'
+});
+app.use('/api/', apiLimiter);
 
 // Middleware
 const allowedOrigins = [
   "http://localhost:3000",
+  "http://localhost:3001",
   "https://juztdog.web.app",
 ];
 
@@ -31,25 +40,44 @@ app.use(
     credentials: true,
   })
 );
+
+app.use(compression());
+app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use('/uploads', express.static('uploads'));
+app.use(morgan('dev'));
 
-// Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/dogs', dogRoutes);
-app.use('/api/contact', contactRoutes);
-app.use('/api/admin', adminRoutes);
-app.use('/api/breeders', breederRoutes);
-app.use('/api/subscriptions', subscriptionRoutes);
-app.use('/api/adoptions', adoptionRoutes);
-app.use('/api/messages', messageRoutes);
-app.use('/api/appointments', appointmentRoutes);
-app.use('/api/moderation', moderationRoutes);
+// Static Uploads Folder
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Basic health check route
 app.get('/api/health', (req: Request, res: Response) => {
-  res.status(200).json({ status: 'ok', message: 'Backend is running!' });
+  res.status(200).json({ status: 'ok', message: 'Juzdog Backend is running!' });
+});
+
+// API Routes
+app.use('/api/v1', apiRoutes);
+
+// 404 Handler
+app.use((req: Request, res: Response, next: NextFunction) => {
+  res.status(404).json({
+    success: false,
+    message: 'Endpoint not found',
+  });
+});
+
+// Global Error Handler
+app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+  console.error('Global Error Handler:', err);
+  
+  const statusCode = err.statusCode || 500;
+  const message = err.message || 'Internal Server Error';
+
+  res.status(statusCode).json({
+    success: false,
+    message,
+    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+  });
 });
 
 export default app;

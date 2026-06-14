@@ -3,348 +3,918 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
-// =======================
-// ENUMS
-// =======================
-enum UserRole {
-  USER
-  BREEDER
-  NGO
-  SERVICE_PROVIDER
-  ADMIN
-}
-
-enum SubscriptionTier {
-  FREE
-  PRO
-  ENTERPRISE
-}
-
-enum Gender {
-  MALE
-  FEMALE
-}
-
-enum ListingStatus {
-  AVAILABLE
-  ADOPTED
-  SOLD
-  HIDDEN
-}
-
-enum ListingType {
-  ADOPTION
-  SALE
-  STUD
-}
-
-enum ServiceType {
-  VET
-  GROOMER
-  TRAINER
-  WALKER
-  SITTER
-}
-
-// =======================
-// CORE USER & PROFILES
-// =======================
+// ==============================
+// USER & ROLE MANAGEMENT
+// ==============================
 
 model User {
-  id               String            @id @default(uuid())
-  email            String            @unique
-  password         String
-  firstName        String?
-  lastName         String?
-  phone            String?
-  avatarUrl        String?
-  role             UserRole          @default(USER)
-  subscriptionTier SubscriptionTier  @default(FREE)
-  subExpiresAt     DateTime?
-  isVerified       Boolean           @default(false)
+  id         String  @id @default(uuid())
+  title      String? // Mr / Mrs / Ms / Dr
+  email      String  @unique
+  password   String
+  firstName  String?
+  lastName   String?
+  phone      String? // Mobile Number
+  altPhone   String?
+  dob        DateTime?
+  gender     String?
+  avatarUrl  String?
   
-  // Relations
-  profiles         DogProfile[]
-  breederProfile   BreederProfile?
-  ngoProfile       NgoProfile?
-  serviceProfile   ServiceProviderProfile?
+  // Address Information
+  doorNo     String?
+  buildingName String?
+  street     String?
+  landmark   String?
+  address1   String?
+  address2   String?
+  city       String?
+  state      String?
+  country    String?
+  pincode    String?
+
+  // Profile Information
+  occupation   String?
+  organization String?
+  website      String?
+
+  // KCI Information
+  kciMembershipNo      String?
+  breederLicenseNo     String?
+  kennelClubName       String?
+  experienceInDogShows String?
+
+  // Preferences & Terms
+  prefSms        Boolean @default(true)
+  prefEmail      Boolean @default(true)
+  prefWhatsapp   Boolean @default(true)
+  termsAccepted  Boolean @default(false)
+  privacyAccepted Boolean @default(false)
   
-  posts            Post[]
-  comments         Comment[]
-  likes            Like[]
-  followers        Follower[]        @relation("UserFollowers")
-  following        Follower[]        @relation("UserFollowing")
-  
-  adoptionRequests AdoptionRequest[]
-  
-  // Messages
-  sentMessages     Message[]         @relation("SentMessages")
-  receivedMessages Message[]         @relation("ReceivedMessages")
-  
-  favorites        Favorite[]
-  reportsMade      Report[]          @relation("Reporter")
-  
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
+  mobileVerified Boolean @default(false)
+
+  provider   String? // 'local', 'google', 'facebook'
+  providerId String?
+  isActive   Boolean @default(true)
+
+  roles              UserRole[]
+  dogsOwned          Dog[]               @relation("DogOwner")
+  eventRegistrations EventRegistration[]
+  payments           Payment[]
+  notifications      Notification[]
+  auditLogs          AuditLog[]
+  activityLogs       ActivityLog[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
 }
 
-model BreederProfile {
+model Role {
+  id          String  @id @default(uuid())
+  name        String  @unique // Super Admin, Admin, Sub Admin, Judge, User, Public Visitor
+  description String?
+
+  users       UserRole[]
+  permissions RolePermission[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Permission {
+  id          String  @id @default(uuid())
+  name        String  @unique // e.g., 'manage_events', 'manage_users'
+  description String?
+
+  roles RolePermission[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model UserRole {
+  userId String
+  roleId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+model OtpVerification {
+  id           String   @id @default(uuid())
+  phone        String   @unique
+  otpCode      String
+  otpExpiry    DateTime
+  otpAttempts  Int      @default(0)
+  isVerified   Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// ==============================
+// DOG MANAGEMENT
+// ==============================
+
+model FCIGroup {
+  id             String  @id @default(uuid())
+  groupNumber    Int     @unique // 1 to 10
+  name           String
+  slug           String  @unique @default(cuid())
+  description    String? @db.Text
+  heroImage      String?
+  cardImage      String?
+  icon           String?
+  displayOrder   Int     @default(0)
+  seoTitle       String?
+  seoDescription String? @db.Text
+  featured       Boolean @default(false)
+  status         String  @default("ACTIVE")
+
+  breeds Breed[]
+  events EventFCIGroup[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Breed {
+  id         String    @id @default(uuid())
+  name       String    @unique
+  fciGroupId String?
+  fciGroup   FCIGroup? @relation(fields: [fciGroupId], references: [id])
+
+  dogs Dog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AgeClass {
   id          String   @id @default(uuid())
-  userId      String   @unique
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  kennelName  String
-  licenseNo   String?
+  name        String   @unique // Minor Puppy, Puppy, Junior, etc.
+  description String?
+  minMonths   Int?     // Minimum age in months (inclusive)
+  maxMonths   Int?     // Maximum age in months (inclusive)
+  specialRequirements String? // e.g. "Champion Only", "Breed In India"
+  status      String   @default("ACTIVE")
+  displayOrder Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Breeder {
+  id          String  @id @default(uuid())
+  name        String
+  kennelName  String?
+  country     String?
   address     String?
+  phone       String?
+  contactInfo String?
+
+  dogs Dog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Owner {
+  id          String  @id @default(uuid())
+  name        String
+  fatherName  String?
+  email       String?
+  phone       String?
+  whatsapp    String?
+  address     String?
+  state       String?
+  district    String?
+  city        String?
+  pincode     String?
+  contactInfo String?
+
+  dogs Dog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Dog {
+  id              String    @id @default(uuid())
+  name            String
+  breedId         String
+  breed           Breed     @relation(fields: [breedId], references: [id])
+  gender          String // MALE, FEMALE
+  dob             DateTime?
+  color           String?
+  markings        String?
+  weight          Float?
+  height          Float?
+  kciNumber       String?   @unique
+  microchipNumber String?   @unique
+  micNumber       String?   @unique
+  isImported      Boolean   @default(false)
+  countryOfOrigin String?
+  isChampion      Boolean   @default(false)
+  
+  bloodline       Json?     // { sire, dam, grandSire, grandDam, notes }
+  medical         Json?     // { vaccinationStatus, vetName, healthCertUrl, notes }
+
+  pedigreeUrl         String?
+  certificateFrontUrl String?
+  certificateBackUrl  String?
+
+  ownerId     String?
+  userOwnerId String // The platform user who registered the dog
+  breederId   String?
+
+  ownerUser User     @relation("DogOwner", fields: [userOwnerId], references: [id])
+  owner     Owner?   @relation(fields: [ownerId], references: [id])
+  breeder   Breeder? @relation(fields: [breederId], references: [id])
+
+  photos         DogPhoto[]
+  documents      DogDocument[]
+  kciCertificate KCICertificate?
+  registrations  EventRegistration[]
+  matches        CompetitionMatch[]
+  winnerTags     WinnerTag[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+}
+
+model DogPhoto {
+  id        String  @id @default(uuid())
+  dogId     String
+  dog       Dog     @relation(fields: [dogId], references: [id], onDelete: Cascade)
+  url       String
+  isPrimary Boolean @default(false)
+
+  createdAt DateTime @default(now())
+}
+
+model DogDocument {
+  id    String @id @default(uuid())
+  dogId String
+  dog   Dog    @relation(fields: [dogId], references: [id], onDelete: Cascade)
+  type  String // e.g., 'HEALTH_CERT'
+  url   String
+
+  createdAt DateTime @default(now())
+}
+
+model KCICertificate {
+  id            String @id @default(uuid())
+  dogId         String @unique
+  dog           Dog    @relation(fields: [dogId], references: [id], onDelete: Cascade)
+  url           String
+  ocrConfidence Float?
+  extractedData Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ==============================
+// EVENT & COMPETITION MANAGEMENT
+// ==============================
+
+model Club {
+  id          String   @id @default(uuid())
+  name        String
+  logoUrl     String?
+  address     String?
+  secretary   String?
+  president   String?
+  email       String?
+  phone       String?
   website     String?
-  rating      Float    @default(0.0)
-  verified    Boolean  @default(false)
+  description String?
+  history     String?
+  isActive    Boolean  @default(true)
+  
+  events      Event[]
+
+  deletedAt   DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
 
-model NgoProfile {
-  id              String   @id @default(uuid())
-  userId          String   @unique
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  organizationName String
-  registrationNo  String?
-  address         String?
-  website         String?
-  verified        Boolean  @default(false)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-}
-
-model ServiceProviderProfile {
-  id          String      @id @default(uuid())
-  userId      String      @unique
-  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  businessName String
-  serviceType ServiceType
-  address     String?
-  experienceYears Int?
-  rating      Float       @default(0.0)
-  verified    Boolean     @default(false)
-  reviews     ServiceReview[]
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-}
-
-model ServiceReview {
-  id          String                 @id @default(uuid())
-  providerId  String
-  provider    ServiceProviderProfile @relation(fields: [providerId], references: [id], onDelete: Cascade)
-  reviewerId  String
-  rating      Int
-  comment     String?                @db.Text
-  createdAt   DateTime               @default(now())
-}
-
-// =======================
-// DOGS & BREEDS
-// =======================
-
-model Breed {
-  id              String       @id @default(uuid())
-  name            String       @unique
-  origin          String?
-  sizeCategory    String?      // e.g., Small, Medium, Large, Giant
-  lifeSpan        String?
-  temperament     String?
-  imageUrl        String?
-  dogs            DogProfile[]
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
-}
-
-model DogProfile {
-  id               String            @id @default(uuid())
-  name             String
-  breedId          String?
-  breed            Breed?            @relation(fields: [breedId], references: [id])
-  ageMonths        Int
-  gender           Gender            @default(MALE)
-  weightKg         Float?
-  color            String?
-  price            Float             @default(0.0)
-  description      String            @db.Text
-  vaccinated       Boolean           @default(false)
-  registered       Boolean           @default(false)
-  status           ListingStatus     @default(AVAILABLE)
-  listingType      ListingType       @default(ADOPTION)
-  featured         Boolean           @default(false)
+model Event {
+  id                      String    @id @default(uuid())
+  slug                    String    @unique @default(cuid())
+  clubId                  String
+  club                    Club      @relation(fields: [clubId], references: [id])
+  name                    String
+  subtitle                String?
+  description             String?   @db.Text
+  type                    String // FCI, CACIB
+  fciBadge                String?
+  startDate               DateTime
+  endDate                 DateTime
+  venue                   String
+  entryFee                Float
+  prizePool               String?
+  bannerUrl               String?
+  capacity                Int?
+  availableSlots          Int?
+  status                  String    @default("DRAFT") // DRAFT, REGISTRATION_OPEN, ONGOING, COMPLETED
+  registrationWindowStart DateTime?
+  registrationWindowEnd   DateTime?
   
-  // AI Metrics
-  aiPredictedPrice Float?
-  aiBreedConfidence Float?
+  // UI Display & Management
+  cardImage               String?
+  mobileBanner            String?
+  featuredImage           String?
+  judgesCount             Int?
+  ctaText                 String?
+  ctaLink                 String?
+  displayOrder            Int       @default(0)
+  isFeatured              Boolean   @default(false)
   
-  ownerId          String
-  owner            User              @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  // JSON UI Data
+  timeline                Json?     // Array of { time, title, description }
+  competitionRules        Json?     // Array of string rules
+  downloads               Json?     // Array of { title, url }
+  faqs                    Json?     // Array of { question, answer }
   
-  images           Image[]
-  adoptionRequests AdoptionRequest[]
-  favorites        Favorite[]
-  showParticipations ShowParticipant[]
-  
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-}
+  // SEO
+  seoTitle                String?
+  seoDescription          String?   @db.Text
+  metaKeywords            String?
+  ogImage                 String?
 
-model Image {
-  id        String     @id @default(uuid())
-  url       String
-  profile   DogProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  profileId String
-  isPrimary Boolean    @default(false)
-  createdAt DateTime   @default(now())
-}
+  fciGroups        EventFCIGroup[]
+  categories       EventCategory[]
+  registrations    EventRegistration[]
+  judgeAssignments JudgeAssignment[]
+  rounds           CompetitionRound[]
+  mediaGallery     EventGallery[]
 
-// =======================
-// SOCIAL NETWORK
-// =======================
-
-model Follower {
-  id          String   @id @default(uuid())
-  followerId  String
-  follower    User     @relation("UserFollowing", fields: [followerId], references: [id], onDelete: Cascade)
-  followingId String
-  following   User     @relation("UserFollowers", fields: [followingId], references: [id], onDelete: Cascade)
-  createdAt   DateTime @default(now())
-  
-  @@unique([followerId, followingId])
-}
-
-model Post {
-  id        String    @id @default(uuid())
-  authorId  String
-  author    User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  imageUrl  String?
-  videoUrl  String?
-  content   String    @db.Text
-  likes     Like[]
-  comments  Comment[]
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
 }
 
-model Comment {
-  id        String   @id @default(uuid())
-  postId    String
-  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
-  authorId  String
-  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  content   String   @db.Text
+model EventFCIGroup {
+  eventId    String
+  fciGroupId String
+  event      Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  fciGroup   FCIGroup @relation(fields: [fciGroupId], references: [id], onDelete: Cascade)
+
+  @@id([eventId, fciGroupId])
+}
+
+model EventCategory {
+  id          String  @id @default(uuid())
+  eventId     String
+  event       Event   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  name        String // e.g., 'Junior', 'Open', 'Champion'
+  description String?
+
+  registrations EventRegistration[]
+
   createdAt DateTime @default(now())
 }
 
-model Like {
-  id        String   @id @default(uuid())
-  postId    String
-  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
-  authorId  String
-  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+model Judge {
+  id             String  @id @default(uuid())
+  name           String
+  country        String?
+  experience     String?
+  qualifications String? @db.Text
+  groups         String? // e.g. "Groups 1, 2, 8"
+  bio            String? @db.Text
+  photoUrl       String?
+  credentials    String? @db.Text
+  socialLinks    Json?
+  sortOrder      Int     @default(0)
+  isFeatured     Boolean @default(false)
+  status         String  @default("ACTIVE") // ACTIVE, INACTIVE
+
+  assignments JudgeAssignment[]
+
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model JudgeAssignment {
+  id             String @id @default(uuid())
+  eventId        String
+  judgeId        String
+  assignedGroups Json? // List of FCI Group IDs they are judging
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  judge Judge @relation(fields: [judgeId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+}
+
+model EventRegistration {
+  id           String @id @default(uuid())
+  serialNumber String @unique // e.g., JZ-2026-001-0001
+  eventId      String
+  userId       String
+  dogId        String
+  categoryId   String
+  status       String @default("PENDING") // PENDING, CONFIRMED, CANCELLED
+
+  event    Event         @relation(fields: [eventId], references: [id])
+  user     User          @relation(fields: [userId], references: [id])
+  dog      Dog           @relation(fields: [dogId], references: [id])
+  category EventCategory @relation(fields: [categoryId], references: [id])
+
+  payment Payment?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([eventId, dogId])
+}
+
+model CompetitionRound {
+  id      String @id @default(uuid())
+  eventId String
+  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  name    String // Round 1, Round 2, Best In Show
+  level   Int // 1, 2, 3
+  status  String @default("PENDING") // PENDING, ACTIVE, COMPLETED
+
+  matches CompetitionMatch[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model CompetitionMatch {
+  id      String           @id @default(uuid())
+  roundId String
+  round   CompetitionRound @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  dogId   String
+  dog     Dog              @relation(fields: [dogId], references: [id])
+  status  String           @default("PARTICIPATING") // PARTICIPATING, ELIMINATED, ADVANCED
+  score   Float?
+  notes   String?
+
+  winners Winner[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Winner {
+  id             String           @id @default(uuid())
+  matchId        String
+  match          CompetitionMatch @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  awardTitle     String // Best of Breed, Best of Group, Best in Show
+  rank           Int?
   
-  @@unique([postId, authorId])
-}
-
-// =======================
-// DOG SHOWS
-// =======================
-
-model DogShow {
-  id           String            @id @default(uuid())
-  name         String
-  description  String?           @db.Text
-  date         DateTime
-  location     String
-  status       String            @default("UPCOMING") // UPCOMING, ONGOING, COMPLETED
-  participants ShowParticipant[]
-  createdAt    DateTime          @default(now())
-  updatedAt    DateTime          @updatedAt
-}
-
-model ShowParticipant {
-  id        String     @id @default(uuid())
-  showId    String
-  show      DogShow    @relation(fields: [showId], references: [id], onDelete: Cascade)
-  dogId     String
-  dog       DogProfile @relation(fields: [dogId], references: [id], onDelete: Cascade)
-  status    String     @default("REGISTERED") // REGISTERED, COMPLETED, DISQUALIFIED
-  award     String?
-  createdAt DateTime   @default(now())
-  
-  @@unique([showId, dogId])
-}
-
-// =======================
-// LOST & FOUND
-// =======================
-
-model LostFoundReport {
-  id             String   @id @default(uuid())
-  reporterId     String
-  dogName        String?
-  lastSeenLoc    String
-  lastSeenDate   DateTime
-  description    String   @db.Text
+  ownerName      String?
+  breedName      String?
+  competition    String?
+  year           Int?
+  certificateUrl String?
   imageUrl       String?
-  status         String   @default("LOST") // LOST, FOUND, RESOLVED
-  aiMatchScore   Float?
-  contactPhone   String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  videoUrl       String?
+  description    String?          @db.Text
+
+  winnerTag WinnerTag?
+
+  createdAt DateTime @default(now())
 }
 
-// =======================
-// UTILITIES
-// =======================
-
-model AdoptionRequest {
-  id        String     @id @default(uuid())
-  userId    String
-  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+model WinnerTag {
+  id        String   @id @default(uuid())
+  winnerId  String   @unique
+  winner    Winner   @relation(fields: [winnerId], references: [id], onDelete: Cascade)
   dogId     String
-  dog       DogProfile @relation(fields: [dogId], references: [id], onDelete: Cascade)
-  status    String     @default("PENDING") // PENDING, APPROVED, REJECTED
-  notes     String?    @db.Text
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  dog       Dog      @relation(fields: [dogId], references: [id], onDelete: Cascade)
+  award     String
+  eventName String
+  eventDate DateTime
+  badgeUrl  String?
+
+  createdAt DateTime @default(now())
 }
 
-model Message {
+// ==============================
+// PAYMENTS
+// ==============================
+
+model Payment {
+  id             String            @id @default(uuid())
+  registrationId String            @unique
+  registration   EventRegistration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User              @relation(fields: [userId], references: [id])
+  amount         Float
+  currency       String            @default("INR")
+  status         String            @default("PENDING") // PENDING, SUCCESS, FAILURE, REFUNDED
+  transactionId  String?           @unique
+  paymentGateway String // RAZORPAY, STRIPE
+
+  logs    PaymentLog[]
+  refunds Refund[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PaymentLog {
+  id              String  @id @default(uuid())
+  paymentId       String
+  payment         Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  status          String
+  responsePayload Json?
+
+  createdAt DateTime @default(now())
+}
+
+model Refund {
+  id            String  @id @default(uuid())
+  paymentId     String
+  payment       Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  amount        Float
+  status        String  @default("PENDING") // PENDING, PROCESSED, FAILED
+  refundReason  String?
+  transactionId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ==============================
+// ENTERPRISE NOTIFICATION SYSTEM
+// ==============================
+
+model Notification {
+  id                String    @id @default(uuid())
+  title             String
+  message           String    @db.Text
+  shortMessage      String?   @db.Text
+  notificationType  String    // IN_APP, EMAIL, SMS, WHATSAPP, PUSH, BROADCAST
+  category          String    // SYSTEM, EVENT, PAYMENT, COMPETITION, SUPPORT
+  priority          String    @default("NORMAL") // LOW, NORMAL, HIGH, URGENT
+  
+  senderId          String?
+  receiverId        String
+  receiverRole      String?
+  
+  eventId           String?
+  dogId             String?
+  paymentId         String?
+  competitionId     String?
+  
+  actionUrl         String?
+  icon              String?
+  image             String?
+  
+  isRead            Boolean   @default(false)
+  readAt            DateTime?
+  isArchived        Boolean   @default(false)
+  
+  deliveryStatus    String    @default("PENDING") // PENDING, DELIVERED, FAILED
+  emailStatus       String?
+  smsStatus         String?
+  whatsappStatus    String?
+  pushStatus        String?
+  
+  expiresAt         DateTime?
+  
+  user              User      @relation(fields: [receiverId], references: [id], onDelete: Cascade)
+  logs              NotificationLog[]
+
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+}
+
+model NotificationTemplate {
+  id               String   @id @default(uuid())
+  name             String   @unique
+  category         String
+  subject          String?
+  emailTemplate    String?  @db.Text
+  smsTemplate      String?  @db.Text
+  whatsappTemplate String?  @db.Text
+  pushTemplate     String?  @db.Text
+  variables        Json?
+  status           String   @default("ACTIVE")
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model NotificationLog {
+  id                  String       @id @default(uuid())
+  notificationId      String
+  notification        Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  channel             String       // EMAIL, SMS, WHATSAPP, PUSH
+  response            Json?
+  status              String       // SENT, FAILED, DELIVERED
+  provider            String?      // MSG91, WATI, FIREBASE, SMTP
+  providerMessageId   String?
+  retryCount          Int          @default(0)
+
+  createdAt           DateTime     @default(now())
+}
+
+model MediaGallery {
   id         String   @id @default(uuid())
-  senderId   String
-  sender     User     @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
-  receiverId String
-  receiver   User     @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
-  content    String   @db.Text
-  read       Boolean  @default(false)
+  url        String
+  type       String   // PHOTO, VIDEO
+  category   String   // DOG_SHOW, PICS, POSTERS
+  isPublic   Boolean  @default(true)
+  altText    String?
+  tags       Json?    // MySQL json array
+  sortOrder  Int      @default(0)
+  featured   Boolean  @default(false)
+
   createdAt  DateTime @default(now())
 }
 
-model Favorite {
-  id        String     @id @default(uuid())
-  userId    String
-  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  dogId     String
-  dog       DogProfile @relation(fields: [dogId], references: [id], onDelete: Cascade)
-  createdAt DateTime   @default(now())
+model EventGallery {
+  id      String @id @default(uuid())
+  eventId String
+  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  url     String
+  type    String // PHOTO, VIDEO
 
-  @@unique([userId, dogId])
+  createdAt DateTime @default(now())
+}
+
+model AuditLog {
+  id        String  @id @default(uuid())
+  userId    String?
+  user      User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String
+  entity    String // EVENT, DOG, PAYMENT, etc.
+  entityId  String?
+  details   Json?
+  ipAddress String?
+
+  createdAt DateTime @default(now())
+}
+
+model ActivityLog {
+  id          String  @id @default(uuid())
+  userId      String
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action      String
+  description String?
+
+  createdAt DateTime @default(now())
+}
+
+// ==============================
+// SYSTEM & SETTINGS
+// ==============================
+
+model Setting {
+  id          String  @id @default(uuid())
+  key         String  @unique
+  value       String
+  description String?
+
+  updatedAt DateTime @updatedAt
+}
+
+model SerialGenerator {
+  id           String @id @default(uuid())
+  prefix       String @unique // e.g., 'JZ-2026-001'
+  currentValue Int    @default(0)
+
+  updatedAt DateTime @updatedAt
+}
+
+model DashboardMetric {
+  id               String   @id @default(uuid())
+  metricKey        String   @unique
+  metricValue      Float
+  lastCalculatedAt DateTime @default(now())
+}
+
+// ==============================
+// CMS & MARKETING
+// ==============================
+
+model FAQ {
+  id        String   @id @default(uuid())
+  question  String
+  answer    String   @db.Text
+  isActive  Boolean  @default(true)
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Testimonial {
+  id        String   @id @default(uuid())
+  name      String
+  role      String?
+  content   String   @db.Text
+  avatarUrl String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Sponsor {
+  id        String   @id @default(uuid())
+  name      String
+  logoUrl   String
+  website   String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Banner {
+  id               String   @id @default(uuid())
+  title            String
+  subtitle         String?
+  description      String?  @db.Text
+  imageUrl         String
+  videoUrl         String?
+  primaryBtnText   String?
+  primaryBtnLink   String?
+  secondaryBtnText String?
+  secondaryBtnLink String?
+  badgeText        String?
+  overlayColor     String?
+  page             String   @default("HOME")
+  sortOrder        Int      @default(0)
+  isActive         Boolean  @default(true)
+  isScheduled      Boolean  @default(false)
+  publishAt        DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model PageBanner {
+  id               String   @id @default(uuid())
+  pageSlug         String   @unique
+  title            String
+  subtitle         String?  @db.Text
+  bannerImage      String
+  breadcrumbTitle  String?
+  isActive         Boolean  @default(true)
+  displayOrder     Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("page_banners")
+}
+
+model HomepageBanner {
+  id           String    @id @default(uuid())
+  title        String
+  desktopImage String
+  mobileImage  String?
+  redirectUrl  String?
+  targetBlank  Boolean   @default(false)
+  sortOrder    Int       @default(0)
+  status       String    @default("ACTIVE")
+  startDate    DateTime?
+  endDate      DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@map("homepage_banners")
 }
 
 model Report {
-  id         String   @id @default(uuid())
-  reporterId String
-  reporter   User     @relation("Reporter", fields: [reporterId], references: [id], onDelete: Cascade)
-  targetType String   // DOG, USER, POST
-  targetId   String
-  reason     String   @db.Text
-  status     String   @default("PENDING") // PENDING, RESOLVED, DISMISSED
-  createdAt  DateTime @default(now())
+  id          String   @id @default(uuid())
+  name        String
+  type        String // EVENT_REPORT, FINANCIAL_REPORT, etc.
+  generatedBy String
+  fileUrl     String
+  createdAt   DateTime @default(now())
+}
+
+model CmsHeader {
+  id              String   @id @default(uuid())
+  logoUrl         String?
+  navigation      Json?    // Array of link objects
+  megaMenu        Json?
+  ctaButtons      Json?
+  stickyHeader    Boolean  @default(true)
+  transparent     Boolean  @default(false)
+  updatedAt       DateTime @updatedAt
+}
+
+model CmsFooter {
+  id              String   @id @default(uuid())
+  companyLogo     String?
+  description     String?  @db.Text
+  quickLinks      Json?
+  services        Json?
+  resources       Json?
+  socialLinks     Json?
+  contactDetails  Json?
+  copyrightText   String?
+  privacyUrl      String?
+  termsUrl        String?
+  updatedAt       DateTime @updatedAt
+}
+
+model CmsAbout {
+  id              String   @id @default(uuid())
+  heading         String?
+  subHeading      String?
+  description     String?  @db.Text
+  imageUrl        String?
+  vision          String?  @db.Text
+  mission         String?  @db.Text
+  values          Json?
+  achievements    Json?
+  statistics      Json?
+  updatedAt       DateTime @updatedAt
+}
+
+model Menu {
+  id          String   @id @default(uuid())
+  name        String
+  url         String
+  parentId    String?
+  icon        String?
+  position    String   @default("NAVBAR") // NAVBAR, FOOTER_MAIN, FOOTER_QUICK
+  displayOrder Int     @default(0)
+  visibility  Boolean  @default(true)
+  openNewTab  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Blog {
+  id            String   @id @default(uuid())
+  title         String
+  slug          String   @unique
+  banner        String?
+  content       String   @db.Text
+  author        String?
+  category      String?
+  tags          Json?    // Array of strings
+  seoTitle      String?
+  seoDescription String? @db.Text
+  publishedDate DateTime?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model CmsGlobal {
+  id               String   @id @default(uuid())
+  title            String
+  subtitle         String?  @db.Text
+  description      String?  @db.Text
+  image            String?
+  mobileImage      String?
+  buttonText       String?
+  buttonLink       String?
+  seoTitle         String?
+  seoDescription   String?  @db.Text
+  seoKeywords      String?
+  status           String   @default("ACTIVE")
+  startDate        DateTime?
+  endDate          DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("cms_global")
+}
+
+model CmsPage {
+  id               String   @id @default(uuid())
+  slug             String   @unique
+  title            String
+  subtitle         String?  @db.Text
+  description      String?  @db.Text
+  image            String?
+  mobileImage      String?
+  buttonText       String?
+  buttonLink       String?
+  seoTitle         String?
+  seoDescription   String?  @db.Text
+  seoKeywords      String?
+  status           String   @default("ACTIVE")
+  startDate        DateTime?
+  endDate          DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("cms_pages")
 }

@@ -1,0 +1,43 @@
+{
+  "users": [
+    {
+      "id": "55c19549-2917-449a-9f9e-4205bec173b4",
+      "email": "admin@gmail.com",
+      "password": "$2b$10$h87TBXPq0DvQYlFxLdQqOOWhtMl8n3hL7oG6uZGbibHqCGqyR5.Qi",
+      "role": "ADMIN",
+      "createdAt": "2026-06-08T12:13:22.567Z",
+      "updatedAt": "2026-06-08T12:59:30.858Z",
+      "subExpiresAt": null,
+      "subscriptionType": "FREE"
+    }
+  ],
+  "dogs": [
+    {
+      "id": "6d2a50b2-8968-4019-a614-0a3d6b7a0381",
+      "name": "PUPPY",
+      "breed": "gold",
+      "age": 1,
+      "description": "test",
+      "ownerId": "55c19549-2917-449a-9f9e-4205bec173b4",
+      "createdAt": "2026-06-08T12:26:49.048Z",
+      "updatedAt": "2026-06-08T12:26:49.048Z",
+      "color": null,
+      "featured": 0,
+      "gender": "MALE",
+      "listingType": "ADOPTION",
+      "price": 0,
+      "registered": 0,
+      "status": "AVAILABLE",
+      "vaccinated": 0,
+      "weight": null
+    }
+  ],
+  "images": [
+    {
+      "id": "ed17db38-a4bf-4d03-85da-059eb6a222fc",
+      "url": "https://namma-orru-foods.s3.ap-south-1.amazonaws.com/dog-profiles/photos-1780921608685-712242613.jpg",
+      "profileId": "6d2a50b2-8968-4019-a614-0a3d6b7a0381",
+      "createdAt": "2026-06-08T12:26:49.048Z"
+    }
+  ]
+}

@@ -1,0 +1,57 @@
+import { Router } from 'express';
+import authRoutes from './auth.routes';
+import userRoutes from './user.routes';
+import dogRoutes from './dog.routes';
+import eventRoutes from './event.routes';
+import paymentRoutes from './payment.routes';
+import uploadRoutes from './upload.routes';
+// import certificateRoutes from './certificate.routes';
+import groupRoutes from './group.routes';
+import breedRoutes from './breed.routes';
+import settingsRoutes from './settings.routes';
+import dashboardRoutes from './dashboard.routes';
+import reportsRoutes from './report.routes';
+import notificationsRoutes from './notifications.routes';
+// import supportRoutes from './support.routes';
+import fCIGroupRoutes from './fCIGroup.routes';
+import ageClassRoutes from './ageClass.routes';
+import roleRoutes from './role.routes';
+import permissionRoutes from './permission.routes';
+import refundRoutes from './refund.routes';
+import winnerTagRoutes from './winnerTag.routes';
+import mediaGalleryRoutes from './mediaGallery.routes';
+import fAQRoutes from './fAQ.routes';
+import homepageBannerRoutes from './homepageBanner.routes';
+import pageBannerRoutes from './pageBanner.routes';
+import cmsRoutes from './cms.routes';
+
+const router = Router();
+
+router.use('/cms', cmsRoutes);
+router.use('/homepage-banners', homepageBannerRoutes);
+router.use('/page-banners', pageBannerRoutes);
+
+router.use('/auth', authRoutes);
+router.use('/users', userRoutes);
+router.use('/dogs', dogRoutes);
+router.use('/events', eventRoutes);
+router.use('/payments', paymentRoutes);
+router.use('/uploads', uploadRoutes);
+// router.use('/certificates', certificateRoutes);
+router.use('/groups', groupRoutes);
+router.use('/fci-groups', fCIGroupRoutes);
+router.use('/breeds', breedRoutes);
+router.use('/age-classes', ageClassRoutes);
+router.use('/roles', roleRoutes);
+router.use('/permissions', permissionRoutes);
+router.use('/refunds', refundRoutes);
+router.use('/winner-tags', winnerTagRoutes);
+router.use('/media', mediaGalleryRoutes);
+router.use('/cms/faqs', fAQRoutes);
+router.use('/settings', settingsRoutes);
+router.use('/dashboard', dashboardRoutes);
+router.use('/reports', reportsRoutes);
+router.use('/notifications', notificationsRoutes);
+// router.use('/support', supportRoutes);
+
+export default router;

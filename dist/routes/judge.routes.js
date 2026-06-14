@@ -1,0 +1,15 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const judge_controller_1 = require("../controllers/judge.controller");
+const auth_middleware_1 = require("../middlewares/auth.middleware");
+const router = (0, express_1.Router)();
+router.get('/', judge_controller_1.getJudges);
+router.post('/', auth_middleware_1.authenticate, (0, auth_middleware_1.authorize)(['ADMIN', 'SUPER_ADMIN']), judge_controller_1.createJudge);
+router.get('/assignments', auth_middleware_1.authenticate, (0, auth_middleware_1.authorize)(['ADMIN', 'SUPER_ADMIN', 'SUB_ADMIN']), judge_controller_1.getJudgeAssignments);
+router.post('/assign', auth_middleware_1.authenticate, (0, auth_middleware_1.authorize)(['ADMIN', 'SUPER_ADMIN', 'SUB_ADMIN']), judge_controller_1.assignJudgeToEvent);
+router.post('/bulk-delete', auth_middleware_1.authenticate, (0, auth_middleware_1.authorize)(['ADMIN', 'SUPER_ADMIN']), judge_controller_1.bulkDeleteJudges);
+router.get('/:id', judge_controller_1.getJudgeById);
+router.put('/:id', auth_middleware_1.authenticate, (0, auth_middleware_1.authorize)(['ADMIN', 'SUPER_ADMIN']), judge_controller_1.updateJudge);
+router.delete('/:id', auth_middleware_1.authenticate, (0, auth_middleware_1.authorize)(['ADMIN', 'SUPER_ADMIN']), judge_controller_1.deleteJudge);
+exports.default = router;
