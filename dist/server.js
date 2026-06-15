@@ -15,6 +15,16 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const fs_1 = __importDefault(require("fs"));
 const path_1 = __importDefault(require("path"));
 const dotenv_1 = __importDefault(require("dotenv"));
+dotenv_1.default.config();
+// Global Exception/Rejection Loggers for Render debugging
+process.on('uncaughtException', (err) => {
+    console.error('🔥 UNCAUGHT EXCEPTION CRASH DETECTED:');
+    console.error(err.stack || err);
+    process.exit(1);
+});
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('🔥 UNHANDLED REJECTION DETECTED at:', promise, 'reason:', reason);
+});
 // STEP 1 & 10: Load dotenv based on NODE_ENV
 const nodeEnv = process.env.NODE_ENV || 'development';
 const envPaths = [
@@ -35,9 +45,12 @@ if (!envLoaded) {
 }
 // STEP 5: Default NODE_ENV
 process.env.NODE_ENV = process.env.NODE_ENV || 'development';
-// STEP 6: Default FRONTEND_URL in dev
-if (process.env.NODE_ENV === 'development' && !process.env.FRONTEND_URL) {
-    process.env.FRONTEND_URL = 'http://localhost:3000';
+// STEP 6: Default FRONTEND_URL and optional envs
+if (!process.env.FRONTEND_URL) {
+    process.env.FRONTEND_URL = 'https://juztdog.web.app';
+}
+if (!process.env.JWT_REFRESH_SECRET) {
+    process.env.JWT_REFRESH_SECRET = process.env.JWT_SECRET || 'juztdog_refresh_secret_fallback_key';
 }
 // STEP 3 & 4: Validate every required variable before importing app
 const requiredEnvs = [
@@ -45,8 +58,6 @@ const requiredEnvs = [
     'PORT',
     'DATABASE_URL',
     'JWT_SECRET',
-    'JWT_REFRESH_SECRET',
-    'FRONTEND_URL',
     'RAZORPAY_KEY_ID',
     'RAZORPAY_KEY_SECRET'
 ];
@@ -80,39 +91,31 @@ const prisma_1 = __importDefault(require("./prisma"));
 const PORT = process.env.PORT || 5001;
 function bootstrap() {
     return __awaiter(this, void 0, void 0, function* () {
-        let dbStatus = 'Disconnected';
-        try {
-            // STEP 3 (Initialization): Connect database
-            yield prisma_1.default.$connect();
-            yield prisma_1.default.$queryRaw `SELECT 1`;
-            dbStatus = 'Connected';
-        }
-        catch (error) {
-            console.error('❌ FATAL ERROR: Database connection failed.');
-            console.error(error);
-            process.exit(1);
-        }
-        // STEP 4, 5, 6, 7 are handled inside app.ts and services
-        // STEP 8: Start HTTP server and log output
+        // STEP 8: Start HTTP server immediately and log output
         app_1.default.listen(PORT, () => {
             console.log('=====================================');
             console.log('🚀 JuzDog Backend');
             console.log('=====================================');
             console.log('✓ Environment Loaded');
             console.log('✓ Environment Validated');
-            console.log('✓ Database Connected');
-            console.log('✓ Redis Connected');
-            console.log('✓ RBAC Initialized');
-            console.log('✓ Scheduler Started');
-            console.log('✓ Email Service Initialized');
-            console.log('✓ Razorpay Initialized');
-            console.log('✓ File Upload Service Ready');
-            console.log('✓ API Routes Loaded');
+            console.log('✓ Express Server Initialized');
             console.log('=====================================');
             console.log(`Server running on:\nhttp://localhost:${PORT}\n`);
             console.log(`Environment:\n${process.env.NODE_ENV}`);
             console.log('=====================================\n');
         });
+        // STEP 3 (Initialization): Connect database in background
+        try {
+            console.log('Database: Connecting to database...');
+            yield prisma_1.default.$connect();
+            yield prisma_1.default.$queryRaw `SELECT 1`;
+            console.log('✓ Database: Connected successfully');
+        }
+        catch (error) {
+            console.error('❌ Database: Connection failed.');
+            console.error(error);
+            // Do not crash the process; keeping it running allows diagnostic health checks to load
+        }
     });
 }
 bootstrap();
