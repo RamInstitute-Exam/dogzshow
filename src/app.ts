@@ -45,6 +45,10 @@ app.use(morgan('dev'));
 // Static Uploads Folder
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
+app.get('/', (req, res) => {
+  res.send('Welcome to Juztdog Backend!');
+});
+
 // Detailed health check route
 app.get('/api/health', async (req: Request, res: Response) => {
   let dbStatus = 'disconnected';
@@ -81,7 +85,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 // Global Error Handler
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   console.error('Global Error Handler:', err);
-  
+
   const statusCode = err.statusCode || 500;
   const message = err.message || 'Internal Server Error';
 
