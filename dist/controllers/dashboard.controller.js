@@ -12,13 +12,13 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getUserStats = void 0;
+exports.getAdminStats = exports.getUserStats = void 0;
 const prisma_1 = __importDefault(require("../prisma"));
 const getUserStats = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const userId = req.user.id;
         // Run aggregations in parallel
-        const [totalDogs, upcomingEvents, pendingRegistrations, certificates] = yield Promise.all([
+        const [totalDogs, upcomingEvents, pendingRegistrations, certificates, recentRegistrations] = yield Promise.all([
             prisma_1.default.dog.count({ where: { userOwnerId: userId, deletedAt: null } }),
             prisma_1.default.eventRegistration.count({
                 where: {
@@ -32,6 +32,12 @@ const getUserStats = (req, res) => __awaiter(void 0, void 0, void 0, function* (
             }),
             prisma_1.default.kCICertificate.count({
                 where: { dog: { userOwnerId: userId } }
+            }),
+            prisma_1.default.eventRegistration.findMany({
+                where: { userId },
+                take: 5,
+                orderBy: { createdAt: 'desc' },
+                include: { event: true, dog: true }
             })
         ]);
         res.status(200).json({
@@ -40,7 +46,8 @@ const getUserStats = (req, res) => __awaiter(void 0, void 0, void 0, function* (
                 totalDogs,
                 upcomingEvents,
                 pendingRegistrations,
-                certificates
+                certificates,
+                recentRegistrations
             }
         });
     }
@@ -50,3 +57,48 @@ const getUserStats = (req, res) => __awaiter(void 0, void 0, void 0, function* (
     }
 });
 exports.getUserStats = getUserStats;
+const getAdminStats = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const [totalDogs, totalUsers, totalEvents, registrations, payments, upcomingEvents, completedEvents, pendingPayments, winners, revenueResult, recentRegistrations] = yield Promise.all([
+            prisma_1.default.dog.count({ where: { deletedAt: null } }),
+            prisma_1.default.user.count(),
+            prisma_1.default.event.count({ where: { deletedAt: null } }),
+            prisma_1.default.eventRegistration.count(),
+            prisma_1.default.payment.count(),
+            prisma_1.default.event.count({ where: { startDate: { gte: new Date() }, deletedAt: null } }),
+            prisma_1.default.event.count({ where: { status: 'COMPLETED', deletedAt: null } }),
+            prisma_1.default.payment.count({ where: { status: 'PENDING' } }),
+            prisma_1.default.winner.count(),
+            prisma_1.default.payment.aggregate({
+                where: { status: 'SUCCESS' },
+                _sum: { amount: true }
+            }),
+            prisma_1.default.eventRegistration.findMany({
+                take: 5,
+                orderBy: { createdAt: 'desc' },
+                include: { user: true, dog: true, event: true }
+            })
+        ]);
+        res.status(200).json({
+            success: true,
+            data: {
+                totalDogs,
+                totalUsers,
+                totalEvents,
+                registrations,
+                payments,
+                upcomingEvents,
+                completedEvents,
+                pendingPayments,
+                winners,
+                revenue: revenueResult._sum.amount || 0,
+                recentRegistrations
+            }
+        });
+    }
+    catch (error) {
+        console.error('Error fetching admin stats:', error);
+        res.status(500).json({ success: false, message: 'Failed to fetch admin stats' });
+    }
+});
+exports.getAdminStats = getAdminStats;

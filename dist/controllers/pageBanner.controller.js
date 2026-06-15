@@ -8,100 +8,67 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteBanner = exports.updateBanner = exports.createBanner = exports.getAllBanners = exports.getBannerBySlug = void 0;
-const prisma_1 = __importDefault(require("../prisma"));
-// Get Banner by Slug (Public)
-const getBannerBySlug = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.bulkRemove = exports.remove = exports.update = exports.create = exports.getById = exports.getAll = void 0;
+const pageBanner_service_1 = require("../services/pageBanner.service");
+const service = new pageBanner_service_1.PageBannerService();
+const getAll = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const slug = req.params.slug;
-        const banner = yield prisma_1.default.pageBanner.findUnique({
-            where: { pageSlug: slug },
-        });
-        if (!banner || !banner.isActive) {
-            // Return a default empty response to fallback on frontend gracefully
-            return res.status(200).json({
-                success: true,
-                data: null
-            });
-        }
-        res.status(200).json({
-            success: true,
-            data: banner,
-        });
+        const result = yield service.getAll(req.query);
+        res.status(200).json(Object.assign({ success: true, message: 'Retrieved successfully' }, result));
     }
     catch (error) {
-        res.status(500).json({ success: false, message: 'Failed to fetch banner' });
+        res.status(500).json({ success: false, message: error.message });
     }
 });
-exports.getBannerBySlug = getBannerBySlug;
-// Get All Banners (Admin)
-const getAllBanners = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.getAll = getAll;
+const getById = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const banners = yield prisma_1.default.pageBanner.findMany({
-            orderBy: { displayOrder: 'asc' },
-        });
-        res.status(200).json({
-            success: true,
-            data: banners,
-        });
+        const data = yield service.getById(req.params.id);
+        res.status(200).json({ success: true, data });
     }
     catch (error) {
-        res.status(500).json({ success: false, message: 'Failed to fetch banners' });
+        res.status(404).json({ success: false, message: error.message });
     }
 });
-exports.getAllBanners = getAllBanners;
-// Create Banner (Admin)
-const createBanner = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.getById = getById;
+const create = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const banner = yield prisma_1.default.pageBanner.create({
-            data: req.body,
-        });
-        res.status(201).json({
-            success: true,
-            data: banner,
-        });
+        const data = yield service.create(req.body);
+        res.status(201).json({ success: true, message: 'Created successfully', data });
     }
     catch (error) {
-        res.status(500).json({ success: false, message: error.message || 'Failed to create banner' });
+        res.status(400).json({ success: false, message: error.message });
     }
 });
-exports.createBanner = createBanner;
-// Update Banner (Admin)
-const updateBanner = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.create = create;
+const update = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const id = req.params.id;
-        const banner = yield prisma_1.default.pageBanner.update({
-            where: { id },
-            data: req.body,
-        });
-        res.status(200).json({
-            success: true,
-            data: banner,
-        });
+        const data = yield service.update(req.params.id, req.body);
+        res.status(200).json({ success: true, message: 'Updated successfully', data });
     }
     catch (error) {
-        res.status(500).json({ success: false, message: error.message || 'Failed to update banner' });
+        res.status(400).json({ success: false, message: error.message });
     }
 });
-exports.updateBanner = updateBanner;
-// Delete Banner (Admin)
-const deleteBanner = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.update = update;
+const remove = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const id = req.params.id;
-        yield prisma_1.default.pageBanner.delete({
-            where: { id },
-        });
-        res.status(200).json({
-            success: true,
-            message: 'Banner deleted successfully',
-        });
+        yield service.delete(req.params.id);
+        res.status(200).json({ success: true, message: 'Deleted successfully' });
     }
     catch (error) {
-        res.status(500).json({ success: false, message: error.message || 'Failed to delete banner' });
+        res.status(500).json({ success: false, message: error.message });
     }
 });
-exports.deleteBanner = deleteBanner;
+exports.remove = remove;
+const bulkRemove = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        yield service.bulkDelete(req.body.ids);
+        res.status(200).json({ success: true, message: 'Bulk deleted successfully' });
+    }
+    catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+exports.bulkRemove = bulkRemove;

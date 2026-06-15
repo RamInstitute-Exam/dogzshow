@@ -8,115 +8,85 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.bulkDeleteClubs = exports.deleteClub = exports.updateClub = exports.createClub = exports.getClubById = exports.getClubs = void 0;
-const prisma_1 = __importDefault(require("../prisma"));
-const getClubs = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.bulkRemove = exports.remove = exports.update = exports.create = exports.getById = exports.getAll = void 0;
+const audit_logger_1 = require("../utils/audit.logger");
+const club_service_1 = require("../services/club.service");
+const cache_1 = require("../utils/cache");
+const service = new club_service_1.ClubService();
+const getAll = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 10;
-        const search = req.query.search || '';
-        let whereClause = { deletedAt: null };
-        if (search) {
-            whereClause.OR = [
-                { name: { contains: search } },
-                { secretary: { contains: search } },
-                { president: { contains: search } }
-            ];
-        }
-        const [clubs, total] = yield Promise.all([
-            prisma_1.default.club.findMany({
-                where: whereClause,
-                skip: (page - 1) * limit,
-                take: limit,
-                orderBy: { createdAt: 'desc' },
-                include: {
-                    _count: { select: { events: true } }
-                }
-            }),
-            prisma_1.default.club.count({ where: whereClause })
-        ]);
-        res.status(200).json({
-            success: true,
-            data: clubs,
-            pagination: { total, page, limit, totalPages: Math.ceil(total / limit) }
-        });
-    }
-    catch (error) {
-        console.error('Failed to fetch clubs:', error);
-        res.status(500).json({ success: false, error: 'Failed to fetch clubs' });
-    }
-});
-exports.getClubs = getClubs;
-const getClubById = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    try {
-        const club = yield prisma_1.default.club.findUnique({
-            where: { id: req.params.id },
-            include: { events: true }
-        });
-        if (!club || club.deletedAt) {
-            res.status(404).json({ success: false, error: 'Club not found' });
+        res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=3600');
+        const cacheKey = `club:all:${JSON.stringify(req.query)}`;
+        const cached = cache_1.memoryCache.get(cacheKey);
+        if (cached) {
+            res.status(200).json(Object.assign({ success: true, message: 'Retrieved successfully' }, cached));
             return;
         }
-        res.status(200).json({ success: true, data: club });
+        const result = yield service.getAll(req.query);
+        cache_1.memoryCache.set(cacheKey, result);
+        res.status(200).json(Object.assign({ success: true, message: 'Retrieved successfully' }, result));
     }
     catch (error) {
-        res.status(500).json({ success: false, error: 'Failed to fetch club' });
+        res.status(500).json({ success: false, message: error.message });
     }
 });
-exports.getClubById = getClubById;
-const createClub = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.getAll = getAll;
+const getById = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const club = yield prisma_1.default.club.create({
-            data: req.body
-        });
-        res.status(201).json({ success: true, data: club });
+        const data = yield service.getById(req.params.id);
+        res.status(200).json({ success: true, data });
     }
     catch (error) {
-        res.status(500).json({ success: false, error: 'Failed to create club' });
+        res.status(404).json({ success: false, message: error.message });
     }
 });
-exports.createClub = createClub;
-const updateClub = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.getById = getById;
+const create = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const club = yield prisma_1.default.club.update({
-            where: { id: req.params.id },
-            data: req.body
-        });
-        res.status(200).json({ success: true, data: club });
+        const data = yield service.create(req.body);
+        cache_1.memoryCache.clear();
+        yield audit_logger_1.AuditLogger.log(req, 'CREATE', 'CLUB', data.id, null, data);
+        res.status(201).json({ success: true, message: 'Created successfully', data });
     }
     catch (error) {
-        res.status(500).json({ success: false, error: 'Failed to update club' });
+        res.status(400).json({ success: false, message: error.message });
     }
 });
-exports.updateClub = updateClub;
-const deleteClub = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.create = create;
+const update = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        yield prisma_1.default.club.update({
-            where: { id: req.params.id },
-            data: { deletedAt: new Date(), isActive: false }
-        });
-        res.status(200).json({ success: true, message: 'Club deleted successfully' });
+        const data = yield service.update(req.params.id, req.body);
+        cache_1.memoryCache.clear();
+        yield audit_logger_1.AuditLogger.log(req, 'UPDATE', 'CLUB', data.id, null, data);
+        res.status(200).json({ success: true, message: 'Updated successfully', data });
     }
     catch (error) {
-        res.status(500).json({ success: false, error: 'Failed to delete club' });
+        res.status(400).json({ success: false, message: error.message });
     }
 });
-exports.deleteClub = deleteClub;
-const bulkDeleteClubs = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.update = update;
+const remove = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const { ids } = req.body;
-        yield prisma_1.default.club.updateMany({
-            where: { id: { in: ids } },
-            data: { deletedAt: new Date(), isActive: false }
-        });
-        res.status(200).json({ success: true, message: 'Clubs bulk deleted' });
+        yield service.delete(req.params.id);
+        cache_1.memoryCache.clear();
+        yield audit_logger_1.AuditLogger.log(req, 'DELETE', 'CLUB', req.params.id, null, null);
+        res.status(200).json({ success: true, message: 'Deleted successfully' });
     }
     catch (error) {
-        res.status(500).json({ success: false, error: 'Failed to bulk delete clubs' });
+        res.status(500).json({ success: false, message: error.message });
     }
 });
-exports.bulkDeleteClubs = bulkDeleteClubs;
+exports.remove = remove;
+const bulkRemove = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        yield service.bulkDelete(req.body.ids);
+        cache_1.memoryCache.clear();
+        yield audit_logger_1.AuditLogger.log(req, 'BULK_DELETE', 'CLUB', null, null, { ids: req.body.ids });
+        res.status(200).json({ success: true, message: 'Bulk deleted successfully' });
+    }
+    catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+exports.bulkRemove = bulkRemove;

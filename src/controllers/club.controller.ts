@@ -1,12 +1,21 @@
 import { Request, Response } from 'express';
 import { AuditLogger } from '../utils/audit.logger';
 import { ClubService } from '../services/club.service';
+import { memoryCache } from '../utils/cache';
 
 const service = new ClubService();
 
 export const getAll = async (req: Request, res: Response): Promise<void> => {
   try {
+    res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=3600');
+    const cacheKey = `club:all:${JSON.stringify(req.query)}`;
+    const cached = memoryCache.get(cacheKey);
+    if (cached) {
+      res.status(200).json({ success: true, message: 'Retrieved successfully', ...cached });
+      return;
+    }
     const result = await service.getAll(req.query);
+    memoryCache.set(cacheKey, result);
     res.status(200).json({ success: true, message: 'Retrieved successfully', ...result });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
@@ -25,6 +34,7 @@ export const getById = async (req: Request, res: Response): Promise<void> => {
 export const create = async (req: Request, res: Response): Promise<void> => {
   try {
     const data = await service.create(req.body);
+    memoryCache.clear();
     await AuditLogger.log(req, 'CREATE', 'CLUB', data.id, null, data);
     res.status(201).json({ success: true, message: 'Created successfully', data });
   } catch (error: any) {
@@ -35,6 +45,7 @@ export const create = async (req: Request, res: Response): Promise<void> => {
 export const update = async (req: Request, res: Response): Promise<void> => {
   try {
     const data = await service.update(req.params.id as string, req.body);
+    memoryCache.clear();
     await AuditLogger.log(req, 'UPDATE', 'CLUB', data.id, null, data);
     res.status(200).json({ success: true, message: 'Updated successfully', data });
   } catch (error: any) {
@@ -45,6 +56,7 @@ export const update = async (req: Request, res: Response): Promise<void> => {
 export const remove = async (req: Request, res: Response): Promise<void> => {
   try {
     await service.delete(req.params.id as string);
+    memoryCache.clear();
     await AuditLogger.log(req, 'DELETE', 'CLUB', req.params.id as string, null, null);
     res.status(200).json({ success: true, message: 'Deleted successfully' });
   } catch (error: any) {
@@ -55,6 +67,7 @@ export const remove = async (req: Request, res: Response): Promise<void> => {
 export const bulkRemove = async (req: Request, res: Response): Promise<void> => {
   try {
     await service.bulkDelete(req.body.ids);
+    memoryCache.clear();
     await AuditLogger.log(req, 'BULK_DELETE', 'CLUB', null, null, { ids: req.body.ids });
     res.status(200).json({ success: true, message: 'Bulk deleted successfully' });
   } catch (error: any) {

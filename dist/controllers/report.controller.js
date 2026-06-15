@@ -8,42 +8,67 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.generateReport = exports.getReports = void 0;
-const prisma_1 = __importDefault(require("../prisma"));
-const getReports = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.bulkRemove = exports.remove = exports.update = exports.create = exports.getById = exports.getAll = void 0;
+const report_service_1 = require("../services/report.service");
+const service = new report_service_1.ReportService();
+const getAll = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const reports = yield prisma_1.default.report.findMany({
-            orderBy: { createdAt: 'desc' }
-        });
-        res.status(200).json({ success: true, data: reports });
+        const result = yield service.getAll(req.query);
+        res.status(200).json(Object.assign({ success: true, message: 'Retrieved successfully' }, result));
     }
     catch (error) {
-        res.status(500).json({ success: false, error: 'Failed to fetch reports' });
+        res.status(500).json({ success: false, message: error.message });
     }
 });
-exports.getReports = getReports;
-const generateReport = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a;
+exports.getAll = getAll;
+const getById = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const { type, name } = req.body;
-        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.userId;
-        // Simulate PDF generation with a dummy URL
-        const newReport = yield prisma_1.default.report.create({
-            data: {
-                name: name || `${type} Export - ${new Date().toLocaleDateString()}`,
-                type,
-                generatedBy: userId || 'System',
-                fileUrl: `https://dummy-bucket.s3.amazonaws.com/reports/${type}_${Date.now()}.pdf`
-            }
-        });
-        res.status(201).json({ success: true, data: newReport });
+        const data = yield service.getById(req.params.id);
+        res.status(200).json({ success: true, data });
     }
     catch (error) {
-        res.status(500).json({ success: false, error: 'Failed to generate report' });
+        res.status(404).json({ success: false, message: error.message });
     }
 });
-exports.generateReport = generateReport;
+exports.getById = getById;
+const create = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const data = yield service.create(req.body);
+        res.status(201).json({ success: true, message: 'Created successfully', data });
+    }
+    catch (error) {
+        res.status(400).json({ success: false, message: error.message });
+    }
+});
+exports.create = create;
+const update = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const data = yield service.update(req.params.id, req.body);
+        res.status(200).json({ success: true, message: 'Updated successfully', data });
+    }
+    catch (error) {
+        res.status(400).json({ success: false, message: error.message });
+    }
+});
+exports.update = update;
+const remove = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        yield service.delete(req.params.id);
+        res.status(200).json({ success: true, message: 'Deleted successfully' });
+    }
+    catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+exports.remove = remove;
+const bulkRemove = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        yield service.bulkDelete(req.body.ids);
+        res.status(200).json({ success: true, message: 'Bulk deleted successfully' });
+    }
+    catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+exports.bulkRemove = bulkRemove;

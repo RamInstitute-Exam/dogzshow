@@ -8,124 +8,67 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.reorderBanners = exports.deleteBanner = exports.updateBanner = exports.createBanner = exports.getAllBanners = exports.getActiveBanners = void 0;
-const prisma_1 = __importDefault(require("../prisma"));
-// Get Active Banners (Public)
-const getActiveBanners = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.bulkRemove = exports.remove = exports.update = exports.create = exports.getById = exports.getAll = void 0;
+const homepageBanner_service_1 = require("../services/homepageBanner.service");
+const service = new homepageBanner_service_1.HomepageBannerService();
+const getAll = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const now = new Date();
-        const banners = yield prisma_1.default.homepageBanner.findMany({
-            where: {
-                status: 'ACTIVE',
-                OR: [
-                    { startDate: null, endDate: null },
-                    { startDate: { lte: now }, endDate: null },
-                    { startDate: null, endDate: { gte: now } },
-                    { startDate: { lte: now }, endDate: { gte: now } }
-                ]
-            },
-            orderBy: { sortOrder: 'asc' },
-        });
-        res.status(200).json({
-            success: true,
-            data: banners,
-        });
+        const result = yield service.getAll(req.query);
+        res.status(200).json(Object.assign({ success: true, message: 'Retrieved successfully' }, result));
     }
     catch (error) {
-        res.status(500).json({ success: false, message: 'Failed to fetch homepage banners' });
+        res.status(500).json({ success: false, message: error.message });
     }
 });
-exports.getActiveBanners = getActiveBanners;
-// Get All Banners (Admin)
-const getAllBanners = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.getAll = getAll;
+const getById = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const banners = yield prisma_1.default.homepageBanner.findMany({
-            orderBy: { sortOrder: 'asc' },
-        });
-        res.status(200).json({
-            success: true,
-            data: banners,
-        });
+        const data = yield service.getById(req.params.id);
+        res.status(200).json({ success: true, data });
     }
     catch (error) {
-        res.status(500).json({ success: false, message: 'Failed to fetch banners' });
+        res.status(404).json({ success: false, message: error.message });
     }
 });
-exports.getAllBanners = getAllBanners;
-// Create Banner (Admin)
-const createBanner = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.getById = getById;
+const create = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const banner = yield prisma_1.default.homepageBanner.create({
-            data: req.body,
-        });
-        res.status(201).json({
-            success: true,
-            data: banner,
-        });
+        const data = yield service.create(req.body);
+        res.status(201).json({ success: true, message: 'Created successfully', data });
     }
     catch (error) {
-        res.status(500).json({ success: false, message: 'Failed to create banner' });
+        res.status(400).json({ success: false, message: error.message });
     }
 });
-exports.createBanner = createBanner;
-// Update Banner (Admin)
-const updateBanner = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.create = create;
+const update = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const id = req.params.id;
-        const banner = yield prisma_1.default.homepageBanner.update({
-            where: { id },
-            data: req.body,
-        });
-        res.status(200).json({
-            success: true,
-            data: banner,
-        });
+        const data = yield service.update(req.params.id, req.body);
+        res.status(200).json({ success: true, message: 'Updated successfully', data });
     }
     catch (error) {
-        res.status(500).json({ success: false, message: 'Failed to update banner' });
+        res.status(400).json({ success: false, message: error.message });
     }
 });
-exports.updateBanner = updateBanner;
-// Delete Banner (Admin)
-const deleteBanner = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.update = update;
+const remove = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const id = req.params.id;
-        yield prisma_1.default.homepageBanner.delete({
-            where: { id },
-        });
-        res.status(200).json({
-            success: true,
-            message: 'Banner deleted successfully',
-        });
+        yield service.delete(req.params.id);
+        res.status(200).json({ success: true, message: 'Deleted successfully' });
     }
     catch (error) {
-        res.status(500).json({ success: false, message: 'Failed to delete banner' });
+        res.status(500).json({ success: false, message: error.message });
     }
 });
-exports.deleteBanner = deleteBanner;
-// Reorder Banners (Admin)
-const reorderBanners = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.remove = remove;
+const bulkRemove = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const { items } = req.body; // Expecting array of { id: string, sortOrder: number }
-        if (!Array.isArray(items)) {
-            return res.status(400).json({ success: false, message: 'Invalid payload' });
-        }
-        const updatePromises = items.map((item) => prisma_1.default.homepageBanner.update({
-            where: { id: item.id },
-            data: { sortOrder: item.sortOrder }
-        }));
-        yield Promise.all(updatePromises);
-        res.status(200).json({
-            success: true,
-            message: 'Banners reordered successfully',
-        });
+        yield service.bulkDelete(req.body.ids);
+        res.status(200).json({ success: true, message: 'Bulk deleted successfully' });
     }
     catch (error) {
-        res.status(500).json({ success: false, message: 'Failed to reorder banners' });
+        res.status(500).json({ success: false, message: error.message });
     }
 });
-exports.reorderBanners = reorderBanners;
+exports.bulkRemove = bulkRemove;

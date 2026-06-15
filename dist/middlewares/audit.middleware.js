@@ -8,38 +8,31 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.auditLog = void 0;
-const prisma_1 = __importDefault(require("../prisma"));
+const audit_logger_1 = require("../utils/audit.logger");
 const auditLog = (action, entity) => {
     return (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
         // We hook into the response finish event to ensure we log what actually happened
         res.on('finish', () => __awaiter(void 0, void 0, void 0, function* () {
             var _a;
-            try {
-                const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
-                const details = {
-                    body: req.body,
-                    params: req.params,
-                    query: req.query,
-                    statusCode: res.statusCode
-                };
-                yield prisma_1.default.auditLog.create({
-                    data: {
-                        userId,
-                        action,
-                        entity,
-                        entityId: req.params.id || null,
-                        details,
-                        ipAddress: req.ip
-                    }
-                });
-            }
-            catch (error) {
-                console.error('Failed to write audit log', error);
+            // Only log if response was successful
+            if (res.statusCode >= 200 && res.statusCode < 300) {
+                try {
+                    const entityId = req.params.id || ((_a = req.body) === null || _a === void 0 ? void 0 : _a.id) || null;
+                    const details = {
+                        body: req.body,
+                        params: req.params,
+                        query: req.query,
+                        statusCode: res.statusCode
+                    };
+                    yield audit_logger_1.AuditLogger.log(req, action, entity, entityId, null, // oldValue cannot be easily computed in middleware
+                    req.body, // newValue
+                    details);
+                }
+                catch (error) {
+                    console.error('Failed to write audit log in middleware', error);
+                }
             }
         }));
         next();

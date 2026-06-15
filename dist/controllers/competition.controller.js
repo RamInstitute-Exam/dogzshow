@@ -46,7 +46,6 @@ const scoreMatch = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
                 data: {
                     matchId,
                     awardTitle,
-                    dogId: match.dogId, // Add to dog
                     eventName: match.round.event.name,
                     eventDate: match.round.event.startDate
                 }

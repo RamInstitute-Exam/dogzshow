@@ -26,7 +26,21 @@ const authenticate = (req, res, next) => __awaiter(void 0, void 0, void 0, funct
         const decoded = jsonwebtoken_1.default.verify(token, process.env.JWT_SECRET || 'secret');
         const user = yield prisma_1.default.user.findUnique({
             where: { id: decoded.userId },
-            include: { roles: { include: { role: true } } }
+            include: {
+                roles: {
+                    include: {
+                        role: {
+                            include: {
+                                permissions: {
+                                    include: {
+                                        permission: true
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         });
         if (!user || !user.isActive) {
             res.status(401).json({ error: 'Unauthorized: Invalid user' });

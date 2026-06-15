@@ -14,6 +14,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.bulkDeleteRegistrations = exports.updateRegistrationStatus = exports.createRegistration = exports.getRegistrations = exports.validateRegistration = void 0;
 const prisma_1 = __importDefault(require("../prisma"));
+const audit_logger_1 = require("../utils/audit.logger");
 const ageCalculator_1 = require("../utils/ageCalculator");
 const validateRegistration = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
@@ -155,6 +156,7 @@ const createRegistration = (req, res) => __awaiter(void 0, void 0, void 0, funct
                 status: 'PENDING'
             }
         });
+        yield audit_logger_1.AuditLogger.log(req, 'CREATE', 'REGISTRATION', reg.id, null, reg);
         res.status(201).json({ success: true, data: reg });
     }
     catch (error) {
@@ -174,6 +176,7 @@ const updateRegistrationStatus = (req, res) => __awaiter(void 0, void 0, void 0,
             where: { id: req.params.id },
             data: dataToUpdate
         });
+        yield audit_logger_1.AuditLogger.log(req, 'UPDATE', 'REGISTRATION', reg.id, null, reg);
         res.status(200).json({ success: true, data: reg });
     }
     catch (error) {
@@ -187,6 +190,7 @@ const bulkDeleteRegistrations = (req, res) => __awaiter(void 0, void 0, void 0, 
         yield prisma_1.default.eventRegistration.deleteMany({
             where: { id: { in: ids } }
         });
+        yield audit_logger_1.AuditLogger.log(req, 'BULK_DELETE', 'REGISTRATION', null, null, { ids });
         res.status(200).json({ success: true, message: 'Registrations deleted' });
     }
     catch (error) {

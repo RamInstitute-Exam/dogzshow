@@ -1,0 +1,14 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const blog_controller_1 = require("../controllers/blog.controller");
+const auth_middleware_1 = require("../middlewares/auth.middleware");
+const router = (0, express_1.Router)();
+router.get('/', blog_controller_1.getAll);
+router.get('/slug/:slug', blog_controller_1.getBySlug);
+router.get('/:id', blog_controller_1.getById);
+router.post('/', auth_middleware_1.authenticate, (0, auth_middleware_1.authorize)(['Super Admin', 'Admin']), blog_controller_1.create);
+router.put('/:id', auth_middleware_1.authenticate, (0, auth_middleware_1.authorize)(['Super Admin', 'Admin']), blog_controller_1.update);
+router.delete('/:id', auth_middleware_1.authenticate, (0, auth_middleware_1.authorize)(['Super Admin', 'Admin']), blog_controller_1.remove);
+router.post('/bulk-delete', auth_middleware_1.authenticate, (0, auth_middleware_1.authorize)(['Super Admin', 'Admin']), blog_controller_1.bulkRemove);
+exports.default = router;

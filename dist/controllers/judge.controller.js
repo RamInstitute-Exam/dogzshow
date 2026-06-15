@@ -8,131 +8,85 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.bulkDeleteJudges = exports.deleteJudge = exports.updateJudge = exports.getJudgeById = exports.assignJudgeToEvent = exports.getJudgeAssignments = exports.createJudge = exports.getJudges = void 0;
-const prisma_1 = __importDefault(require("../prisma"));
-const getJudges = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.bulkRemove = exports.remove = exports.update = exports.create = exports.getById = exports.getAll = void 0;
+const audit_logger_1 = require("../utils/audit.logger");
+const judge_service_1 = require("../services/judge.service");
+const cache_1 = require("../utils/cache");
+const service = new judge_service_1.JudgeService();
+const getAll = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 10;
-        const search = req.query.search || '';
-        const whereClause = search ? { name: { contains: search } } : {};
-        const [judges, total] = yield Promise.all([
-            prisma_1.default.judge.findMany({
-                where: whereClause,
-                skip: (page - 1) * limit,
-                take: limit,
-                orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
-                include: { assignments: { include: { event: true } } }
-            }),
-            prisma_1.default.judge.count({ where: whereClause })
-        ]);
-        res.status(200).json({ success: true, data: judges, pagination: { total, page, limit, totalPages: Math.ceil(total / limit) } });
-    }
-    catch (error) {
-        res.status(500).json({ success: false, error: 'Failed to fetch judges' });
-    }
-});
-exports.getJudges = getJudges;
-const createJudge = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    try {
-        const { name, country, experience, bio, photoUrl, groups } = req.body;
-        const judge = yield prisma_1.default.judge.create({
-            data: { name, country, experience, bio, photoUrl, groups }
-        });
-        res.status(201).json({ success: true, data: judge });
-    }
-    catch (error) {
-        res.status(500).json({ success: false, error: 'Failed to create judge' });
-    }
-});
-exports.createJudge = createJudge;
-const getJudgeAssignments = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    try {
-        const assignments = yield prisma_1.default.judgeAssignment.findMany({
-            include: {
-                judge: true,
-                event: true
-            },
-            orderBy: { createdAt: 'desc' }
-        });
-        res.status(200).json({ success: true, data: assignments });
-    }
-    catch (error) {
-        res.status(500).json({ success: false, error: 'Failed to fetch assignments' });
-    }
-});
-exports.getJudgeAssignments = getJudgeAssignments;
-const assignJudgeToEvent = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    try {
-        const { eventId, judgeId, assignedGroups } = req.body;
-        const assignment = yield prisma_1.default.judgeAssignment.create({
-            data: { eventId, judgeId, assignedGroups }
-        });
-        res.status(201).json({ success: true, data: assignment });
-    }
-    catch (error) {
-        res.status(500).json({ success: false, error: 'Failed to assign judge' });
-    }
-});
-exports.assignJudgeToEvent = assignJudgeToEvent;
-const getJudgeById = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    try {
-        const judge = yield prisma_1.default.judge.findUnique({
-            where: { id: req.params.id },
-            include: { assignments: { include: { event: true } } }
-        });
-        if (!judge) {
-            res.status(404).json({ success: false, error: 'Judge not found' });
+        res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=3600');
+        const cacheKey = `judge:all:${JSON.stringify(req.query)}`;
+        const cached = cache_1.memoryCache.get(cacheKey);
+        if (cached) {
+            res.status(200).json(Object.assign({ success: true, message: 'Retrieved successfully' }, cached));
             return;
         }
-        res.status(200).json({ success: true, data: judge });
+        const result = yield service.getAll(req.query);
+        cache_1.memoryCache.set(cacheKey, result);
+        res.status(200).json(Object.assign({ success: true, message: 'Retrieved successfully' }, result));
     }
     catch (error) {
-        res.status(500).json({ success: false, error: 'Failed to fetch judge' });
+        res.status(500).json({ success: false, message: error.message });
     }
 });
-exports.getJudgeById = getJudgeById;
-const updateJudge = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.getAll = getAll;
+const getById = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const judge = yield prisma_1.default.judge.update({
-            where: { id: req.params.id },
-            data: req.body
-        });
-        res.status(200).json({ success: true, data: judge });
+        const data = yield service.getById(req.params.id);
+        res.status(200).json({ success: true, data });
     }
     catch (error) {
-        res.status(500).json({ success: false, error: 'Failed to update judge' });
+        res.status(404).json({ success: false, message: error.message });
     }
 });
-exports.updateJudge = updateJudge;
-const deleteJudge = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.getById = getById;
+const create = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        // Actually deleting or soft deleting if possible
-        // Wait, does Judge have deletedAt? Let's check schema. If not, delete directly.
-        yield prisma_1.default.judge.delete({
-            where: { id: req.params.id }
-        });
-        res.status(200).json({ success: true, message: 'Judge deleted successfully' });
+        const data = yield service.create(req.body);
+        cache_1.memoryCache.clear();
+        yield audit_logger_1.AuditLogger.log(req, 'CREATE', 'JUDGE', data.id, null, data);
+        res.status(201).json({ success: true, message: 'Created successfully', data });
     }
     catch (error) {
-        res.status(500).json({ success: false, error: 'Failed to delete judge' });
+        res.status(400).json({ success: false, message: error.message });
     }
 });
-exports.deleteJudge = deleteJudge;
-const bulkDeleteJudges = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.create = create;
+const update = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const { ids } = req.body;
-        yield prisma_1.default.judge.deleteMany({
-            where: { id: { in: ids } }
-        });
-        res.status(200).json({ success: true, message: 'Judges bulk deleted' });
+        const data = yield service.update(req.params.id, req.body);
+        cache_1.memoryCache.clear();
+        yield audit_logger_1.AuditLogger.log(req, 'UPDATE', 'JUDGE', data.id, null, data);
+        res.status(200).json({ success: true, message: 'Updated successfully', data });
     }
     catch (error) {
-        res.status(500).json({ success: false, error: 'Failed to bulk delete judges' });
+        res.status(400).json({ success: false, message: error.message });
     }
 });
-exports.bulkDeleteJudges = bulkDeleteJudges;
+exports.update = update;
+const remove = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        yield service.delete(req.params.id);
+        cache_1.memoryCache.clear();
+        yield audit_logger_1.AuditLogger.log(req, 'DELETE', 'JUDGE', req.params.id, null, null);
+        res.status(200).json({ success: true, message: 'Deleted successfully' });
+    }
+    catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+exports.remove = remove;
+const bulkRemove = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        yield service.bulkDelete(req.body.ids);
+        cache_1.memoryCache.clear();
+        yield audit_logger_1.AuditLogger.log(req, 'BULK_DELETE', 'JUDGE', null, null, { ids: req.body.ids });
+        res.status(200).json({ success: true, message: 'Bulk deleted successfully' });
+    }
+    catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+exports.bulkRemove = bulkRemove;

@@ -8,85 +8,67 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getSubAdmins = exports.createRole = exports.getPermissions = exports.getRoles = void 0;
-const prisma_1 = __importDefault(require("../prisma"));
-const getRoles = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.bulkRemove = exports.remove = exports.update = exports.create = exports.getById = exports.getAll = void 0;
+const role_service_1 = require("../services/role.service");
+const service = new role_service_1.RoleService();
+const getAll = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const roles = yield prisma_1.default.role.findMany({
-            include: {
-                permissions: { include: { permission: true } },
-                _count: { select: { users: true } }
-            }
-        });
-        res.status(200).json({ success: true, data: roles });
+        const result = yield service.getAll(req.query);
+        res.status(200).json(Object.assign({ success: true, message: 'Retrieved successfully' }, result));
     }
     catch (error) {
-        res.status(500).json({ success: false, error: 'Failed to fetch roles' });
+        res.status(500).json({ success: false, message: error.message });
     }
 });
-exports.getRoles = getRoles;
-const getPermissions = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.getAll = getAll;
+const getById = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const permissions = yield prisma_1.default.permission.findMany();
-        res.status(200).json({ success: true, data: permissions });
+        const data = yield service.getById(req.params.id);
+        res.status(200).json({ success: true, data });
     }
     catch (error) {
-        res.status(500).json({ success: false, error: 'Failed to fetch permissions' });
+        res.status(404).json({ success: false, message: error.message });
     }
 });
-exports.getPermissions = getPermissions;
-const createRole = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.getById = getById;
+const create = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const { name, description, permissionIds } = req.body;
-        const role = yield prisma_1.default.role.create({
-            data: {
-                name,
-                description,
-                permissions: {
-                    create: permissionIds.map((id) => ({ permissionId: id }))
-                }
-            }
-        });
-        res.status(201).json({ success: true, data: role });
+        const data = yield service.create(req.body);
+        res.status(201).json({ success: true, message: 'Created successfully', data });
     }
     catch (error) {
-        res.status(500).json({ success: false, error: 'Failed to create role' });
+        res.status(400).json({ success: false, message: error.message });
     }
 });
-exports.createRole = createRole;
-const getSubAdmins = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.create = create;
+const update = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        // Find the SUB_ADMIN role
-        const subAdminRole = yield prisma_1.default.role.findUnique({
-            where: { name: 'SUB_ADMIN' }
-        });
-        if (!subAdminRole) {
-            res.status(200).json({ success: true, data: [] });
-            return;
-        }
-        const subAdmins = yield prisma_1.default.user.findMany({
-            where: {
-                roles: { some: { roleId: subAdminRole.id } },
-                deletedAt: null
-            },
-            select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                email: true,
-                phone: true,
-                isActive: true,
-                createdAt: true
-            }
-        });
-        res.status(200).json({ success: true, data: subAdmins });
+        const data = yield service.update(req.params.id, req.body);
+        res.status(200).json({ success: true, message: 'Updated successfully', data });
     }
     catch (error) {
-        res.status(500).json({ success: false, error: 'Failed to fetch sub-admins' });
+        res.status(400).json({ success: false, message: error.message });
     }
 });
-exports.getSubAdmins = getSubAdmins;
+exports.update = update;
+const remove = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        yield service.delete(req.params.id);
+        res.status(200).json({ success: true, message: 'Deleted successfully' });
+    }
+    catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+exports.remove = remove;
+const bulkRemove = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        yield service.bulkDelete(req.body.ids);
+        res.status(200).json({ success: true, message: 'Bulk deleted successfully' });
+    }
+    catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+exports.bulkRemove = bulkRemove;

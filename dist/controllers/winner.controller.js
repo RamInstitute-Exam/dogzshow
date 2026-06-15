@@ -8,133 +8,72 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getPublicWinners = exports.bulkDeleteWinners = exports.getWinners = exports.getDogWinnerTags = exports.issueWinnerTag = void 0;
-const prisma_1 = __importDefault(require("../prisma"));
-const issueWinnerTag = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.bulkRemove = exports.remove = exports.update = exports.create = exports.getById = exports.getAll = void 0;
+const audit_logger_1 = require("../utils/audit.logger");
+const winner_service_1 = require("../services/winner.service");
+const service = new winner_service_1.WinnerService();
+const getAll = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const { winnerId } = req.body;
-        const winner = yield prisma_1.default.winner.findUnique({
-            where: { id: winnerId },
-            include: {
-                match: {
-                    include: { dog: true, round: { include: { event: true } } }
-                }
-            }
-        });
-        if (!winner) {
-            res.status(404).json({ error: 'Winner record not found' });
-            return;
-        }
-        const { dog, round } = winner.match;
-        const { event } = round;
-        const winnerTag = yield prisma_1.default.winnerTag.create({
-            data: {
-                winnerId,
-                dogId: dog.id,
-                award: winner.awardTitle,
-                eventName: event.name,
-                eventDate: event.endDate
-            }
-        });
-        res.status(201).json({ message: 'Winner Tag issued to Dog Profile', winnerTag });
+        const result = yield service.getAll(req.query);
+        res.status(200).json(Object.assign({ success: true, message: 'Retrieved successfully' }, result));
     }
     catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Failed to issue winner tag' });
+        res.status(500).json({ success: false, message: error.message });
     }
 });
-exports.issueWinnerTag = issueWinnerTag;
-const getDogWinnerTags = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.getAll = getAll;
+const getById = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const dogId = req.params.dogId;
-        const tags = yield prisma_1.default.winnerTag.findMany({ where: { dogId } });
-        res.status(200).json(tags);
+        const data = yield service.getById(req.params.id);
+        res.status(200).json({ success: true, data });
     }
     catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Failed to fetch winner tags' });
+        res.status(404).json({ success: false, message: error.message });
     }
 });
-exports.getDogWinnerTags = getDogWinnerTags;
-const getWinners = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.getById = getById;
+const create = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 10;
-        // Fetch Winners (from Competition engine) along with their related tags
-        const [winners, total] = yield Promise.all([
-            prisma_1.default.winner.findMany({
-                skip: (page - 1) * limit,
-                take: limit,
-                orderBy: { createdAt: 'desc' },
-                include: {
-                    match: {
-                        include: {
-                            dog: { include: { owner: true, breed: true } },
-                            round: { include: { event: true, judgeAssignment: { include: { judge: true } } } }
-                        }
-                    }
-                }
-            }),
-            prisma_1.default.winner.count()
-        ]);
-        res.status(200).json({
-            success: true,
-            data: winners,
-            pagination: { total, page, limit, totalPages: Math.ceil(total / limit) }
-        });
+        const data = yield service.create(req.body);
+        yield audit_logger_1.AuditLogger.log(req, 'CREATE', 'WINNER', data.id, null, data);
+        res.status(201).json({ success: true, message: 'Created successfully', data });
     }
     catch (error) {
-        console.error('Error fetching winners:', error);
-        res.status(500).json({ success: false, error: 'Failed to fetch winners' });
+        res.status(400).json({ success: false, message: error.message });
     }
 });
-exports.getWinners = getWinners;
-const bulkDeleteWinners = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.create = create;
+const update = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const { ids } = req.body;
-        yield prisma_1.default.winner.deleteMany({
-            where: { id: { in: ids } }
-        });
-        res.status(200).json({ success: true, message: 'Winners deleted successfully' });
+        const data = yield service.update(req.params.id, req.body);
+        yield audit_logger_1.AuditLogger.log(req, 'UPDATE', 'WINNER', data.id, null, data);
+        res.status(200).json({ success: true, message: 'Updated successfully', data });
     }
     catch (error) {
-        console.error('Error bulk deleting winners:', error);
-        res.status(500).json({ success: false, message: 'Server Error' });
+        res.status(400).json({ success: false, message: error.message });
     }
 });
-exports.bulkDeleteWinners = bulkDeleteWinners;
-const getPublicWinners = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.update = update;
+const remove = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const winners = yield prisma_1.default.winner.findMany({
-            take: 20,
-            orderBy: { createdAt: 'desc' },
-            include: {
-                match: {
-                    include: {
-                        dog: {
-                            include: {
-                                ownerUser: true,
-                                owner: true
-                            }
-                        },
-                        round: {
-                            include: {
-                                event: true
-                            }
-                        }
-                    }
-                }
-            }
-        });
-        res.status(200).json({ success: true, data: winners });
+        yield service.delete(req.params.id);
+        yield audit_logger_1.AuditLogger.log(req, 'DELETE', 'WINNER', req.params.id, null, null);
+        res.status(200).json({ success: true, message: 'Deleted successfully' });
     }
     catch (error) {
-        console.error('Error fetching public winners:', error);
-        res.status(500).json({ success: false, message: 'Server Error' });
+        res.status(500).json({ success: false, message: error.message });
     }
 });
-exports.getPublicWinners = getPublicWinners;
+exports.remove = remove;
+const bulkRemove = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        yield service.bulkDelete(req.body.ids);
+        yield audit_logger_1.AuditLogger.log(req, 'BULK_DELETE', 'WINNER', null, null, { ids: req.body.ids });
+        res.status(200).json({ success: true, message: 'Bulk deleted successfully' });
+    }
+    catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+exports.bulkRemove = bulkRemove;

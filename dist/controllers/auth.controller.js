@@ -16,6 +16,7 @@ exports.socialLogin = exports.refreshToken = exports.login = exports.register = 
 const bcrypt_1 = __importDefault(require("bcrypt"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const prisma_1 = __importDefault(require("../prisma"));
+const audit_logger_1 = require("../utils/audit.logger");
 const generateTokens = (userId) => {
     const accessToken = jsonwebtoken_1.default.sign({ userId }, process.env.JWT_SECRET || 'secret', { expiresIn: '1d' });
     const refreshToken = jsonwebtoken_1.default.sign({ userId }, process.env.JWT_REFRESH_SECRET || 'refresh_secret', { expiresIn: '7d' });
@@ -145,6 +146,8 @@ const register = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
             }
         });
         const tokens = generateTokens(user.id);
+        req.user = { id: user.id };
+        yield audit_logger_1.AuditLogger.log(req, 'REGISTER', 'USER', user.id, null, { email: user.email });
         res.status(201).json({ message: 'User registered successfully', tokens, user: { id: user.id, email: user.email, firstName: user.firstName, lastName: user.lastName } });
     }
     catch (error) {
@@ -174,6 +177,8 @@ const login = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
             return;
         }
         const tokens = generateTokens(user.id);
+        req.user = { id: user.id };
+        yield audit_logger_1.AuditLogger.log(req, 'LOGIN', 'USER', user.id, null, { email: user.email });
         res.status(200).json({
             message: 'Login successful',
             tokens,
@@ -240,6 +245,8 @@ const socialLogin = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
             });
         }
         const tokens = generateTokens(user.id);
+        req.user = { id: user.id };
+        yield audit_logger_1.AuditLogger.log(req, 'SOCIAL_LOGIN', 'USER', user.id, null, { email: user.email, provider });
         res.status(200).json({
             message: 'Login successful',
             tokens,

@@ -8,106 +8,146 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getGlobalCms = exports.getEventDetailCms = exports.getEventsCms = exports.getHomepageCms = void 0;
-const client_1 = require("@prisma/client");
-const prisma = new client_1.PrismaClient();
-// --------------------------------------------------------
-// HOMEPAGE CMS APIS
-// --------------------------------------------------------
-const getHomepageCms = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.getAllPages = exports.updatePage = exports.getPageBySlug = exports.getEventsCms = exports.getHomeCms = exports.updateGlobal = exports.getGlobal = void 0;
+const cms_service_1 = require("../services/cms.service");
+const prisma_1 = __importDefault(require("../prisma"));
+const cache_1 = require("../utils/cache");
+const service = new cms_service_1.CmsService();
+const getGlobal = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const banners = yield prisma.banner.findMany({
-            where: { isActive: true, page: 'HOME' },
-            orderBy: { sortOrder: 'asc' },
-        });
-        const about = yield prisma.cmsAbout.findFirst();
-        const stats = yield prisma.dashboardMetric.findMany();
-        res.status(200).json({
-            success: true,
-            data: {
-                banners,
-                about,
-                stats,
-            },
-        });
+        res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=3600');
+        const cacheKey = 'cms:global';
+        const cached = cache_1.memoryCache.get(cacheKey);
+        if (cached) {
+            res.status(200).json({ success: true, data: cached });
+            return;
+        }
+        const data = yield service.getGlobal();
+        cache_1.memoryCache.set(cacheKey, data);
+        res.status(200).json({ success: true, data });
     }
     catch (error) {
-        console.error('Error fetching Home CMS:', error);
-        res.status(500).json({ success: false, message: 'Server Error' });
+        res.status(500).json({ success: false, message: error.message });
     }
 });
-exports.getHomepageCms = getHomepageCms;
-// --------------------------------------------------------
-// EVENT CMS APIS
-// --------------------------------------------------------
+exports.getGlobal = getGlobal;
+const updateGlobal = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const data = yield service.updateGlobal(req.body);
+        cache_1.memoryCache.clear();
+        res.status(200).json({ success: true, message: 'Global CMS updated', data });
+    }
+    catch (error) {
+        res.status(400).json({ success: false, message: error.message });
+    }
+});
+exports.updateGlobal = updateGlobal;
+const getHomeCms = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=3600');
+        const cacheKey = 'cms:home';
+        const cached = cache_1.memoryCache.get(cacheKey);
+        if (cached) {
+            res.status(200).json({ success: true, data: cached });
+            return;
+        }
+        // Stats for StatsCounter
+        const stats = yield prisma_1.default.dashboardMetric.findMany();
+        // Default seed if empty
+        if (!stats.length) {
+            yield prisma_1.default.dashboardMetric.createMany({
+                data: [
+                    { metricKey: 'registered_dogs', metricValue: 15000 },
+                    { metricKey: 'dog_shows', metricValue: 250 },
+                    { metricKey: 'verified_judges', metricValue: 500 },
+                    { metricKey: 'active_users', metricValue: 12000 },
+                    { metricKey: 'breeds_supported', metricValue: 350 }
+                ]
+            });
+        }
+        const finalStats = yield prisma_1.default.dashboardMetric.findMany();
+        // Page data for About Section
+        const about = yield service.getPageBySlug('about');
+        const resultData = { stats: finalStats, about };
+        cache_1.memoryCache.set(cacheKey, resultData);
+        res.status(200).json({ success: true, data: resultData });
+    }
+    catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+exports.getHomeCms = getHomeCms;
 const getEventsCms = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const events = yield prisma.event.findMany({
+        res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=3600');
+        const cacheKey = 'cms:events';
+        const cached = cache_1.memoryCache.get(cacheKey);
+        if (cached) {
+            res.status(200).json({ success: true, data: cached });
+            return;
+        }
+        const events = yield prisma_1.default.event.findMany({
             where: { status: { not: 'DRAFT' } },
-            include: {
-                club: true,
-            },
             orderBy: { startDate: 'asc' },
+            take: 10,
+            include: { club: true }
         });
+        cache_1.memoryCache.set(cacheKey, events);
         res.status(200).json({ success: true, data: events });
     }
     catch (error) {
-        console.error('Error fetching Events CMS:', error);
-        res.status(500).json({ success: false, message: 'Server Error' });
+        res.status(500).json({ success: false, message: error.message });
     }
 });
 exports.getEventsCms = getEventsCms;
-const getEventDetailCms = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+const getPageBySlug = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const { slug } = req.params;
-        const event = yield prisma.event.findUnique({
-            where: { slug: slug },
-            include: {
-                club: true,
-                judgeAssignments: {
-                    include: { judge: true }
-                },
-                mediaGallery: true,
-            },
-        });
-        if (!event) {
-            return res.status(404).json({ success: false, message: 'Event not found' });
+        res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=3600');
+        const cacheKey = `cms:page:${req.params.slug}`;
+        const cached = cache_1.memoryCache.get(cacheKey);
+        if (cached) {
+            res.status(200).json({ success: true, data: cached });
+            return;
         }
-        res.status(200).json({ success: true, data: event });
+        const data = yield service.getPageBySlug(req.params.slug);
+        cache_1.memoryCache.set(cacheKey, data);
+        res.status(200).json({ success: true, data });
     }
     catch (error) {
-        console.error('Error fetching Event Detail CMS:', error);
-        res.status(500).json({ success: false, message: 'Server Error' });
+        res.status(404).json({ success: false, message: error.message });
     }
 });
-exports.getEventDetailCms = getEventDetailCms;
-// --------------------------------------------------------
-// GLOBAL CMS APIS
-// --------------------------------------------------------
-const getGlobalCms = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.getPageBySlug = getPageBySlug;
+const updatePage = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const header = yield prisma.cmsHeader.findFirst();
-        const footer = yield prisma.cmsFooter.findFirst();
-        const sponsors = yield prisma.sponsor.findMany({ where: { isActive: true } });
-        // We cast to any in case prisma client is not generated yet
-        const menus = yield prisma.menu.findMany({
-            where: { visibility: true },
-            orderBy: { displayOrder: 'asc' }
-        }).catch(() => []);
-        res.status(200).json({
-            success: true,
-            data: {
-                header,
-                footer,
-                sponsors,
-                menus
-            },
-        });
+        const data = yield service.updatePage(req.params.slug, req.body);
+        cache_1.memoryCache.clear();
+        res.status(200).json({ success: true, message: 'Page CMS updated', data });
     }
     catch (error) {
-        console.error('Error fetching Global CMS:', error);
-        res.status(500).json({ success: false, message: 'Server Error' });
+        res.status(400).json({ success: false, message: error.message });
     }
 });
-exports.getGlobalCms = getGlobalCms;
+exports.updatePage = updatePage;
+const getAllPages = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=3600');
+        const cacheKey = 'cms:pages';
+        const cached = cache_1.memoryCache.get(cacheKey);
+        if (cached) {
+            res.status(200).json({ success: true, data: cached });
+            return;
+        }
+        const data = yield service.getAllPages();
+        cache_1.memoryCache.set(cacheKey, data);
+        res.status(200).json({ success: true, data });
+    }
+    catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+exports.getAllPages = getAllPages;

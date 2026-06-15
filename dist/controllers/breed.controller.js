@@ -8,59 +8,85 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getBreeds = exports.createBreed = exports.getFciGroups = exports.createFciGroup = void 0;
-const prisma_1 = __importDefault(require("../prisma"));
-const createFciGroup = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.bulkRemove = exports.remove = exports.update = exports.create = exports.getById = exports.getAll = void 0;
+const audit_logger_1 = require("../utils/audit.logger");
+const breed_service_1 = require("../services/breed.service");
+const cache_1 = require("../utils/cache");
+const service = new breed_service_1.BreedService();
+const getAll = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const { groupNumber, name, description } = req.body;
-        const fciGroup = yield prisma_1.default.fCIGroup.create({
-            data: { groupNumber, name, description }
-        });
-        res.status(201).json(fciGroup);
+        res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=3600');
+        const cacheKey = `breed:all:${JSON.stringify(req.query)}`;
+        const cached = cache_1.memoryCache.get(cacheKey);
+        if (cached) {
+            res.status(200).json(Object.assign({ success: true, message: 'Retrieved successfully' }, cached));
+            return;
+        }
+        const result = yield service.getAll(req.query);
+        cache_1.memoryCache.set(cacheKey, result);
+        res.status(200).json(Object.assign({ success: true, message: 'Retrieved successfully' }, result));
     }
     catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Failed to create FCI Group' });
+        res.status(500).json({ success: false, message: error.message });
     }
 });
-exports.createFciGroup = createFciGroup;
-const getFciGroups = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.getAll = getAll;
+const getById = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const groups = yield prisma_1.default.fCIGroup.findMany({ include: { breeds: true } });
-        res.status(200).json(groups);
+        const data = yield service.getById(req.params.id);
+        res.status(200).json({ success: true, data });
     }
     catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Failed to fetch FCI Groups' });
+        res.status(404).json({ success: false, message: error.message });
     }
 });
-exports.getFciGroups = getFciGroups;
-const createBreed = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.getById = getById;
+const create = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const { name, fciGroupId } = req.body;
-        const breed = yield prisma_1.default.breed.create({
-            data: { name, fciGroupId }
-        });
-        res.status(201).json(breed);
+        const data = yield service.create(req.body);
+        cache_1.memoryCache.clear();
+        yield audit_logger_1.AuditLogger.log(req, 'CREATE', 'BREED', data.id, null, data);
+        res.status(201).json({ success: true, message: 'Created successfully', data });
     }
     catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Failed to create Breed' });
+        res.status(400).json({ success: false, message: error.message });
     }
 });
-exports.createBreed = createBreed;
-const getBreeds = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.create = create;
+const update = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const breeds = yield prisma_1.default.breed.findMany({ include: { fciGroup: true } });
-        res.status(200).json(breeds);
+        const data = yield service.update(req.params.id, req.body);
+        cache_1.memoryCache.clear();
+        yield audit_logger_1.AuditLogger.log(req, 'UPDATE', 'BREED', data.id, null, data);
+        res.status(200).json({ success: true, message: 'Updated successfully', data });
     }
     catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Failed to fetch Breeds' });
+        res.status(400).json({ success: false, message: error.message });
     }
 });
-exports.getBreeds = getBreeds;
+exports.update = update;
+const remove = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        yield service.delete(req.params.id);
+        cache_1.memoryCache.clear();
+        yield audit_logger_1.AuditLogger.log(req, 'DELETE', 'BREED', req.params.id, null, null);
+        res.status(200).json({ success: true, message: 'Deleted successfully' });
+    }
+    catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+exports.remove = remove;
+const bulkRemove = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        yield service.bulkDelete(req.body.ids);
+        cache_1.memoryCache.clear();
+        yield audit_logger_1.AuditLogger.log(req, 'BULK_DELETE', 'BREED', null, null, { ids: req.body.ids });
+        res.status(200).json({ success: true, message: 'Bulk deleted successfully' });
+    }
+    catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+exports.bulkRemove = bulkRemove;

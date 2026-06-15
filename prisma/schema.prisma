@@ -264,6 +264,9 @@ model Dog {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
+
+  @@index([userOwnerId])
+  @@index([createdAt])
 }
 
 model DogPhoto {
@@ -454,6 +457,10 @@ model EventRegistration {
   updatedAt DateTime @updatedAt
 
   @@unique([eventId, dogId])
+  @@index([userId])
+  @@index([dogId])
+  @@index([status])
+  @@index([createdAt])
 }
 
 model CompetitionRound {
@@ -544,6 +551,10 @@ model Payment {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
 }
 
 model PaymentLog {
@@ -612,6 +623,10 @@ model Notification {
 
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
+
+  @@index([receiverId])
+  @@index([isRead])
+  @@index([createdAt])
 }
 
 model NotificationTemplate {
@@ -683,6 +698,9 @@ model AuditLog {
   newValue  Json?
 
   createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
 }
 
 model ActivityLog {

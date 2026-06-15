@@ -9,21 +9,19 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getFciGroupBreeds = exports.getFciGroupDetail = exports.getFciGroups = void 0;
+exports.deleteBreed = exports.updateBreed = exports.addBreed = exports.deleteFciGroup = exports.updateFciGroup = exports.createFciGroup = exports.getFciGroupDetail = exports.getFciGroups = void 0;
 const client_1 = require("@prisma/client");
 const prisma = new client_1.PrismaClient();
 const getFciGroups = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        // Cast to any in case Prisma client generation failed temporarily
         const groups = yield prisma.fCIGroup.findMany({
-            where: { status: 'ACTIVE' },
             include: {
                 _count: {
                     select: { breeds: true }
                 }
             },
-            orderBy: { displayOrder: 'asc' }
-        }).catch(() => []);
+            orderBy: { groupNumber: 'asc' }
+        });
         res.status(200).json({ success: true, data: groups });
     }
     catch (error) {
@@ -34,13 +32,12 @@ const getFciGroups = (req, res) => __awaiter(void 0, void 0, void 0, function* (
 exports.getFciGroups = getFciGroups;
 const getFciGroupDetail = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const { slug } = req.params;
+        const { id } = req.params;
         const group = yield prisma.fCIGroup.findUnique({
-            where: { slug },
+            where: { id },
             include: {
-                _count: {
-                    select: { breeds: true }
-                }
+                breeds: true,
+                _count: { select: { breeds: true } }
             }
         });
         if (!group)
@@ -53,20 +50,83 @@ const getFciGroupDetail = (req, res) => __awaiter(void 0, void 0, void 0, functi
     }
 });
 exports.getFciGroupDetail = getFciGroupDetail;
-const getFciGroupBreeds = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+const createFciGroup = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const { slug } = req.params;
-        const group = yield prisma.fCIGroup.findUnique({
-            where: { slug },
-            include: { breeds: true }
+        const { groupNumber, name, description, status } = req.body;
+        const group = yield prisma.fCIGroup.create({
+            data: { groupNumber: Number(groupNumber), name, description, status }
         });
-        if (!group)
-            return res.status(404).json({ success: false, message: 'Group not found' });
-        res.status(200).json({ success: true, data: group.breeds });
+        res.status(201).json({ success: true, data: group });
     }
     catch (error) {
-        console.error('Error fetching Group Breeds:', error);
         res.status(500).json({ success: false, message: 'Server Error' });
     }
 });
-exports.getFciGroupBreeds = getFciGroupBreeds;
+exports.createFciGroup = createFciGroup;
+const updateFciGroup = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { id } = req.params;
+        const { groupNumber, name, description, status } = req.body;
+        const group = yield prisma.fCIGroup.update({
+            where: { id },
+            data: { groupNumber: Number(groupNumber), name, description, status }
+        });
+        res.status(200).json({ success: true, data: group });
+    }
+    catch (error) {
+        res.status(500).json({ success: false, message: 'Server Error' });
+    }
+});
+exports.updateFciGroup = updateFciGroup;
+const deleteFciGroup = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { id } = req.params;
+        yield prisma.fCIGroup.delete({ where: { id } });
+        res.status(200).json({ success: true, message: 'Group deleted successfully' });
+    }
+    catch (error) {
+        res.status(500).json({ success: false, message: 'Server Error' });
+    }
+});
+exports.deleteFciGroup = deleteFciGroup;
+// Breed Controllers
+const addBreed = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { id: fciGroupId } = req.params;
+        const { name } = req.body;
+        const breed = yield prisma.breed.create({
+            data: { name, fciGroupId }
+        });
+        res.status(201).json({ success: true, data: breed });
+    }
+    catch (error) {
+        res.status(500).json({ success: false, message: 'Server Error' });
+    }
+});
+exports.addBreed = addBreed;
+const updateBreed = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { breedId } = req.params;
+        const { name } = req.body;
+        const breed = yield prisma.breed.update({
+            where: { id: breedId },
+            data: { name }
+        });
+        res.status(200).json({ success: true, data: breed });
+    }
+    catch (error) {
+        res.status(500).json({ success: false, message: 'Server Error' });
+    }
+});
+exports.updateBreed = updateBreed;
+const deleteBreed = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { breedId } = req.params;
+        yield prisma.breed.delete({ where: { id: breedId } });
+        res.status(200).json({ success: true, message: 'Breed deleted successfully' });
+    }
+    catch (error) {
+        res.status(500).json({ success: false, message: 'Server Error' });
+    }
+});
+exports.deleteBreed = deleteBreed;

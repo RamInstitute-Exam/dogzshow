@@ -8,86 +8,77 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getRefunds = exports.getTransactions = exports.razorpayWebhook = void 0;
-const crypto_1 = __importDefault(require("crypto"));
-const prisma_1 = __importDefault(require("../prisma"));
-const razorpayWebhook = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+exports.getRefunds = exports.getTransactions = exports.verifyPayment = exports.createOrder = void 0;
+const payment_service_1 = require("../services/payment.service");
+const paymentService = new payment_service_1.PaymentService();
+const createOrder = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
     try {
-        const secret = process.env.RAZORPAY_WEBHOOK_SECRET || 'secret';
-        const shasum = crypto_1.default.createHmac('sha256', secret);
-        shasum.update(JSON.stringify(req.body));
-        const digest = shasum.digest('hex');
-        if (digest === req.headers['x-razorpay-signature']) {
-            console.log('Razorpay signature valid, processing event...');
-            const event = req.body.event;
-            if (event === 'payment.captured') {
-                const paymentData = req.body.payload.payment.entity;
-                // Mock updating database with payment success
-                yield prisma_1.default.payment.updateMany({
-                    where: { transactionId: paymentData.id },
-                    data: { status: 'SUCCESS' }
-                });
-                console.log(`Payment captured for transaction: ${paymentData.id}`);
-            }
-            res.status(200).json({ status: 'ok' });
+        const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
+        const { registrationId, amount } = req.body;
+        if (!registrationId || !amount) {
+            res.status(400).json({ success: false, message: 'registrationId and amount are required' });
+            return;
         }
-        else {
-            res.status(400).json({ error: 'Invalid signature' });
-        }
+        const data = yield paymentService.createOrder({ registrationId, amount, userId });
+        res.status(201).json({ success: true, message: 'Order created successfully', data });
     }
     catch (error) {
-        console.error('Webhook error:', error);
-        res.status(500).json({ error: 'Failed to process webhook' });
+        res.status(400).json({ success: false, message: error.message });
     }
 });
-exports.razorpayWebhook = razorpayWebhook;
+exports.createOrder = createOrder;
+const verifyPayment = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+        if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+            res.status(400).json({ success: false, message: 'Invalid payment verification payload' });
+            return;
+        }
+        const data = yield paymentService.verifyPayment({ razorpay_order_id, razorpay_payment_id, razorpay_signature });
+        res.status(200).json(data);
+    }
+    catch (error) {
+        res.status(400).json({ success: false, message: error.message });
+    }
+});
+exports.verifyPayment = verifyPayment;
 const getTransactions = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 10;
-        const [transactions, total] = yield Promise.all([
-            prisma_1.default.payment.findMany({
-                skip: (page - 1) * limit,
-                take: limit,
-                orderBy: { createdAt: 'desc' },
-                include: {
-                    user: { select: { firstName: true, lastName: true, email: true } },
-                    registration: { include: { event: true, dog: true } }
-                }
-            }),
-            prisma_1.default.payment.count()
-        ]);
+        const result = yield paymentService.getTransactions(req.query);
         res.status(200).json({
             success: true,
-            data: transactions,
-            pagination: { total, page, limit, totalPages: Math.ceil(total / limit) }
+            data: result.data,
+            pagination: {
+                total: result.total,
+                page: result.page,
+                limit: result.limit,
+                totalPages: result.totalPages
+            }
         });
     }
     catch (error) {
-        res.status(500).json({ success: false, error: 'Failed to fetch transactions' });
+        res.status(500).json({ success: false, message: error.message });
     }
 });
 exports.getTransactions = getTransactions;
 const getRefunds = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const refunds = yield prisma_1.default.refund.findMany({
-            orderBy: { createdAt: 'desc' },
-            include: {
-                payment: {
-                    include: {
-                        user: { select: { firstName: true, lastName: true, email: true } }
-                    }
-                }
+        const result = yield paymentService.getRefunds(req.query);
+        res.status(200).json({
+            success: true,
+            data: result.data,
+            pagination: {
+                total: result.total,
+                page: result.page,
+                limit: result.limit,
+                totalPages: result.totalPages
             }
         });
-        res.status(200).json({ success: true, data: refunds });
     }
     catch (error) {
-        res.status(500).json({ success: false, error: 'Failed to fetch refunds' });
+        res.status(500).json({ success: false, message: error.message });
     }
 });
 exports.getRefunds = getRefunds;
