@@ -36,6 +36,8 @@ import sponsorRoutes from './sponsor.routes';
 import testimonialRoutes from './testimonial.routes';
 import clubRoutes from './club.routes';
 
+import { getHomeCms } from '../controllers/cms.controller';
+
 const router = Router();
 
 // Publicly accessible endpoints (prefix: /api/v1/public)
@@ -43,6 +45,7 @@ const publicRouter = Router();
 publicRouter.use('/cms', cmsRoutes);
 publicRouter.use('/menus', menuRoutes);
 publicRouter.use('/homepage-banners', homepageBannerRoutes);
+publicRouter.use('/banners', homepageBannerRoutes);
 publicRouter.use('/page-banners', pageBannerRoutes);
 publicRouter.use('/dogs', dogRoutes);
 publicRouter.use('/events', eventRoutes);
@@ -58,6 +61,7 @@ publicRouter.use('/breeds', breedRoutes);
 publicRouter.use('/blogs', blogRoutes);
 publicRouter.use('/media', mediaGalleryRoutes);
 publicRouter.use('/winner-tags', winnerTagRoutes);
+publicRouter.get('/stats', getHomeCms);
 
 router.use('/public', publicRouter);
 
@@ -100,4 +104,5 @@ router.use('/reports', reportsRoutes);
 router.use('/notifications', notificationsRoutes);
 router.use('/support', supportRoutes);
 
+export { publicRouter };
 export default router;

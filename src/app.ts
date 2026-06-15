@@ -8,7 +8,7 @@ import rateLimit from 'express-rate-limit';
 import path from 'path';
 
 // Import central router
-import apiRoutes from './routes/index';
+import apiRoutes, { publicRouter } from './routes/index';
 import prisma from './prisma';
 
 const app: Express = express();
@@ -73,6 +73,7 @@ app.get('/api/health', async (req: Request, res: Response) => {
 
 // API Routes
 app.use('/api/v1', apiRoutes);
+app.use('/api/public', publicRouter);
 
 // 404 Handler
 app.use((req: Request, res: Response, next: NextFunction) => {
