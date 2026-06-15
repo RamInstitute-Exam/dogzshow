@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { AuditLogger } from '../utils/audit.logger';
 import { DogService } from '../services/dog.service';
 
 const dogService = new DogService();

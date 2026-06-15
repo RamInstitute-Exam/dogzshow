@@ -9,6 +9,7 @@ import path from 'path';
 
 // Import central router
 import apiRoutes from './routes/index';
+import prisma from './prisma';
 
 const app: Express = express();
 
@@ -16,7 +17,7 @@ const app: Express = express();
 app.use(helmet());
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  max: process.env.NODE_ENV === 'development' ? 5000 : 100, // relax limit in dev
   message: 'Too many requests from this IP, please try again later.'
 });
 app.use('/api/', apiLimiter);
@@ -50,9 +51,26 @@ app.use(morgan('dev'));
 // Static Uploads Folder
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
-// Basic health check route
-app.get('/api/health', (req: Request, res: Response) => {
-  res.status(200).json({ status: 'ok', message: 'Juzdog Backend is running!' });
+// Detailed health check route
+app.get('/api/health', async (req: Request, res: Response) => {
+  let dbStatus = 'disconnected';
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    dbStatus = 'connected';
+  } catch (error) {
+    dbStatus = 'error';
+  }
+
+  res.status(dbStatus === 'connected' ? 200 : 503).json({
+    success: dbStatus === 'connected',
+    status: dbStatus === 'connected' ? 'healthy' : 'unhealthy',
+    environment: process.env.NODE_ENV || 'development',
+    database: dbStatus,
+    server: 'running',
+    version: '1.0.0',
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString()
+  });
 });
 
 // API Routes

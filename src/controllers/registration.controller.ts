@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../prisma';
+import { AuditLogger } from '../utils/audit.logger';
 import { calculateAge, getEligibleAgeClass } from '../utils/ageCalculator';
 
 export const validateRegistration = async (req: Request, res: Response): Promise<void> => {
@@ -156,6 +157,7 @@ export const createRegistration = async (req: Request, res: Response): Promise<v
         status: 'PENDING'
       }
     });
+    await AuditLogger.log(req, 'CREATE', 'REGISTRATION', reg.id, null, reg);
     res.status(201).json({ success: true, data: reg });
   } catch (error) {
     res.status(500).json({ success: false, error: 'Failed to create registration' });
@@ -173,6 +175,7 @@ export const updateRegistrationStatus = async (req: Request, res: Response): Pro
       where: { id: (req.params.id as string) },
       data: dataToUpdate
     });
+    await AuditLogger.log(req, 'UPDATE', 'REGISTRATION', reg.id, null, reg);
     res.status(200).json({ success: true, data: reg });
   } catch (error) {
     res.status(500).json({ success: false, error: 'Failed to update registration' });
@@ -185,6 +188,7 @@ export const bulkDeleteRegistrations = async (req: Request, res: Response): Prom
     await prisma.eventRegistration.deleteMany({
       where: { id: { in: ids } }
     });
+    await AuditLogger.log(req, 'BULK_DELETE', 'REGISTRATION', null, null, { ids });
     res.status(200).json({ success: true, message: 'Registrations deleted' });
   } catch (error) {
     res.status(500).json({ success: false, error: 'Failed to delete registrations' });

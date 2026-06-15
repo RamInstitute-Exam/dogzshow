@@ -67,6 +67,7 @@ model User {
   notifications      Notification[]
   auditLogs          AuditLog[]
   activityLogs       ActivityLog[]
+  supportTickets     SupportTicket[]     @relation("UserTickets")
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -77,12 +78,19 @@ model Role {
   id          String  @id @default(uuid())
   name        String  @unique // Super Admin, Admin, Sub Admin, Judge, User, Public Visitor
   description String?
+  displayName String?
+  color       String?  @default("#3B82F6")
+  icon        String?  @default("shield")
+  priority    Int      @default(0)
+  status      String   @default("ACTIVE")
 
   users       UserRole[]
   permissions RolePermission[]
+  menuPermissions MenuPermission[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
 }
 
 model Permission {
@@ -92,8 +100,9 @@ model Permission {
 
   roles RolePermission[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
 }
 
 model UserRole {
@@ -408,8 +417,9 @@ model Judge {
 
   assignments JudgeAssignment[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
 }
 
 model JudgeAssignment {
@@ -494,7 +504,9 @@ model Winner {
 
   winnerTag WinnerTag?
 
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @default(now()) @updatedAt
+  deletedAt DateTime?
 }
 
 model WinnerTag {
@@ -665,6 +677,10 @@ model AuditLog {
   entityId  String?
   details   Json?
   ipAddress String?
+  browser   String?
+  device    String?
+  oldValue  Json?
+  newValue  Json?
 
   createdAt DateTime @default(now())
 }
@@ -717,8 +733,9 @@ model FAQ {
   answer    String   @db.Text
   isActive  Boolean  @default(true)
   order     Int      @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
 }
 
 model Testimonial {
@@ -760,8 +777,9 @@ model Banner {
   isActive         Boolean  @default(true)
   isScheduled      Boolean  @default(false)
   publishAt        DateTime?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  deletedAt        DateTime?
 }
 
 model PageBanner {
@@ -848,13 +866,46 @@ model CmsAbout {
 model Menu {
   id          String   @id @default(uuid())
   name        String
+  slug        String?  @unique @default(uuid())
   url         String
   parentId    String?
   icon        String?
-  position    String   @default("NAVBAR") // NAVBAR, FOOTER_MAIN, FOOTER_QUICK
+  position    String   @default("NAVBAR") // NAVBAR, FOOTER_MAIN, FOOTER_QUICK, SIDEBAR, ADMIN_SIDEBAR
   displayOrder Int     @default(0)
   visibility  Boolean  @default(true)
   openNewTab  Boolean  @default(false)
+  megaMenu    Json?
+  badge       String?
+  color       String?
+  onlyLoggedUser Boolean @default(false)
+  onlyGuest      Boolean @default(false)
+  onlyAdmin      Boolean @default(false)
+  
+  permissions MenuPermission[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model MenuPermission {
+  id           String   @id @default(uuid())
+  menuId       String
+  roleId       String
+  permissionId String?  // Optional specific permission required
+
+  menu         Menu     @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  role         Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([menuId, roleId])
+}
+
+model SystemSetting {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       String   @db.Text
+  group       String   @default("GENERAL") // GENERAL, SEO, SMTP, SMS, STORAGE
+  isPublic    Boolean  @default(false)
+  updatedBy   String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
@@ -872,8 +923,9 @@ model Blog {
   seoDescription String? @db.Text
   publishedDate DateTime?
   isActive      Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
 }
 
 model CmsGlobal {
@@ -917,4 +969,17 @@ model CmsPage {
   updatedAt        DateTime @updatedAt
 
   @@map("cms_pages")
+}
+
+model SupportTicket {
+  id          String   @id @default(uuid())
+  userId      String?
+  user        User?    @relation("UserTickets", fields: [userId], references: [id], onDelete: SetNull)
+  subject     String
+  message     String   @db.Text
+  status      String   @default("OPEN") // OPEN, IN_PROGRESS, RESOLVED, CLOSED
+  priority    String   @default("NORMAL") // LOW, NORMAL, HIGH, URGENT
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now()) @updatedAt
+  deletedAt   DateTime?
 }

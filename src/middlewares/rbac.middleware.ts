@@ -1,62 +1,99 @@
 import { Request, Response, NextFunction } from 'express';
-import { Logger } from '../utils/logger';
-
-export enum UserRole {
-  SUPER_ADMIN = 'SUPER_ADMIN',
-  ADMIN = 'ADMIN',
-  SUB_ADMIN = 'SUB_ADMIN',
-  EVENT_MANAGER = 'EVENT_MANAGER',
-  JUDGE = 'JUDGE',
-  USER = 'USER',
-  PUBLIC = 'PUBLIC'
-}
+import prisma from '../prisma';
 
 /**
  * Enterprise RBAC Middleware
- * Enforces API-level permissions by comparing the required roles against the user's assigned role.
+ * Validates that the logged-in user has the required permission, either explicitly or via role hierarchy.
  */
-export const requireRoles = (allowedRoles: UserRole[]) => {
-  return (req: Request, res: Response, next: NextFunction): void => {
+export const requirePermission = (requiredPermission: string) => {
+  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      // In a production scenario, the user object is attached to the request by the AuthMiddleware
-      // after verifying the JWT.
       const user = (req as any).user;
 
       if (!user) {
-        res.status(401).json({ success: false, message: 'Authentication required' });
+        res.status(401).json({ error: 'Unauthorized: Authentication required' });
         return;
       }
 
-      const userRole: UserRole = user.role;
+      // Extract user roles
+      const userRoles = user.roles?.map((ur: any) => ur.role) || [];
+      
+      // 1. Super Admin bypasses all permission checks
+      const isSuperAdmin = userRoles.some((role: any) => 
+        role.name.toLowerCase() === 'super admin' || role.name.toLowerCase() === 'super_admin'
+      );
+      if (isSuperAdmin) {
+        next();
+        return;
+      }
 
-      if (!allowedRoles.includes(userRole)) {
-        Logger.warn(`RBAC Violation: User ${user.id} (${userRole}) attempted to access restricted endpoint.`);
-        res.status(403).json({ 
-          success: false, 
-          message: 'Forbidden: You do not have the required permissions to perform this action.' 
+      // 2. Direct permission check (explicit match)
+      const userPermissionNames = new Set<string>();
+      userRoles.forEach((role: any) => {
+        role.permissions?.forEach((rp: any) => {
+          if (rp.permission?.name) {
+            userPermissionNames.add(rp.permission.name);
+          }
         });
+      });
+
+      if (userPermissionNames.has(requiredPermission)) {
+        next();
         return;
       }
 
-      next();
+      // 3. Hierarchical inheritance check based on role priority
+      const maxUserPriority = userRoles.length > 0 
+        ? Math.max(...userRoles.map((r: any) => r.priority || 0))
+        : 0;
+
+      // Find roles that have this permission
+      const rolesWithPermission = await prisma.role.findMany({
+        where: {
+          permissions: {
+            some: {
+              permission: {
+                name: requiredPermission
+              }
+            }
+          }
+        }
+      });
+
+      const hasInheritedPermission = rolesWithPermission.some((role: any) => role.priority <= maxUserPriority);
+
+      if (hasInheritedPermission) {
+        next();
+        return;
+      }
+
+      res.status(403).json({ 
+        error: `Forbidden: You do not have the required permission (${requiredPermission})` 
+      });
     } catch (error) {
-      Logger.error('RBAC Middleware Error:', error);
-      res.status(500).json({ success: false, message: 'Internal Server Error during authorization' });
+      console.error('RBAC Permission Middleware Error:', error);
+      res.status(500).json({ error: 'Internal Server Error during authorization' });
     }
   };
 };
 
 /**
- * Modular Permission Checker
- * E.g., check if a user can edit an event (Event Managers can only edit their own, Admins can edit all).
+ * Check action permission programmatically (e.g. within services)
  */
 export const checkActionPermission = (user: any, resourceOwnerId: string): boolean => {
-  if (user.role === UserRole.SUPER_ADMIN || user.role === UserRole.ADMIN) {
-    return true; // Unrestricted
+  const userRoles = user?.roles?.map((ur: any) => ur.role) || [];
+  const isSuperAdminOrAdmin = userRoles.some((role: any) => 
+    role.name.toLowerCase() === 'super admin' || 
+    role.name.toLowerCase() === 'super_admin' || 
+    role.name.toLowerCase() === 'admin'
+  );
+
+  if (isSuperAdminOrAdmin) {
+    return true;
   }
   
-  if (user.role === UserRole.EVENT_MANAGER && user.id === resourceOwnerId) {
-    return true; // Can manage own resources
+  if (user.id === resourceOwnerId) {
+    return true;
   }
 
   return false;

@@ -1,10 +1,10 @@
-import { SupportRepository } from '../repositories/support.repository';
+import { BreederRepository } from '../repositories/breeder.repository';
 
-export class SupportService {
-  private repository: SupportRepository;
+export class BreederService {
+  private repository: BreederRepository;
 
   constructor() {
-    this.repository = new SupportRepository();
+    this.repository = new BreederRepository();
   }
 
   async getAll(query: any) {
@@ -14,21 +14,15 @@ export class SupportService {
     let where: any = {};
     if (query.search) {
       where.OR = [
-        { subject: { contains: query.search } },
-        { message: { contains: query.search } }
+        { name: { contains: query.search } },
+        { kennelName: { contains: query.search } },
+        { country: { contains: query.search } }
       ];
     }
 
-    if (query.status) {
-      where.status = query.status;
-    }
-
-    if (query.priority) {
-      where.priority = query.priority;
-    }
-
-    if (query.userId) {
-      where.userId = query.userId;
+    if (query.all === 'true' || query.limit === 'all') {
+      const data = await this.repository.findAll({ where });
+      return { data, total: data.length, page: 1, limit: data.length, totalPages: 1 };
     }
 
     const [data, total] = await Promise.all([
@@ -40,7 +34,7 @@ export class SupportService {
 
   async getById(id: string) {
     const item = await this.repository.findById(id);
-    if (!item) throw new Error('Support ticket not found');
+    if (!item) throw new Error('Breeder not found');
     return item;
   }
 

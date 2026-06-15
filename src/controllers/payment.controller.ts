@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { AuditLogger } from '../utils/audit.logger';
 import { PaymentService } from '../services/payment.service';
 
 const paymentService = new PaymentService();

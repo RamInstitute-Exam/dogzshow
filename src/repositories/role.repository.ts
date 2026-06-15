@@ -9,17 +9,47 @@ export class RoleRepository {
     orderBy?: Prisma.RoleOrderByWithRelationInput;
   }) {
     const { skip, take, where, orderBy } = params;
+    const finalWhere: Prisma.RoleWhereInput = {
+      deletedAt: null,
+      ...where
+    };
     return prisma.role.findMany({
-      skip, take, where, orderBy
+      skip,
+      take,
+      where: finalWhere,
+      orderBy: orderBy || { priority: 'desc' },
+      include: {
+        _count: {
+          select: { users: true }
+        },
+        permissions: {
+          include: {
+            permission: true
+          }
+        }
+      }
     });
   }
 
   async count(where?: Prisma.RoleWhereInput) {
-    return prisma.role.count({ where });
+    const finalWhere: Prisma.RoleWhereInput = {
+      deletedAt: null,
+      ...where
+    };
+    return prisma.role.count({ where: finalWhere });
   }
 
   async findById(id: string) {
-    return prisma.role.findUnique({ where: { id } });
+    return prisma.role.findFirst({
+      where: { id, deletedAt: null },
+      include: {
+        permissions: {
+          include: {
+            permission: true
+          }
+        }
+      }
+    });
   }
 
   async create(data: Prisma.RoleCreateInput | Prisma.RoleUncheckedCreateInput) {

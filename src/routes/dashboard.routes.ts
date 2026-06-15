@@ -1,11 +1,10 @@
 import { Router } from 'express';
 import { getUserStats, getAdminStats } from '../controllers/dashboard.controller';
-import { authenticate } from '../middlewares/auth.middleware';
-import { requireRoles, UserRole } from '../middlewares/rbac.middleware';
+import { authenticate, authorize } from '../middlewares/auth.middleware';
 
 const router = Router();
 
 router.get('/stats', authenticate, getUserStats);
-router.get('/admin/stats', authenticate, requireRoles([UserRole.SUPER_ADMIN, UserRole.ADMIN]), getAdminStats);
+router.get('/admin/stats', authenticate, authorize(['Super Admin', 'Admin']), getAdminStats);
 
 export default router;

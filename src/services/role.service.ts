@@ -1,4 +1,5 @@
 import { RoleRepository } from '../repositories/role.repository';
+import prisma from '../prisma';
 
 export class RoleService {
   private repository: RoleRepository;
@@ -13,27 +14,18 @@ export class RoleService {
     
     let where: any = {};
     if (query.search) {
-      // basic fallback search implementation
       where.OR = [
         { name: { contains: query.search } },
-        { title: { contains: query.search } }
-      ].filter(x => Object.keys(x).length > 0);
+        { displayName: { contains: query.search } },
+        { description: { contains: query.search } }
+      ];
     }
 
-    try {
-      const [data, total] = await Promise.all([
-        this.repository.findAll({ skip: (page - 1) * limit, take: limit, where }),
-        this.repository.count(where)
-      ]);
-      return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
-    } catch (e) {
-      // Fallback for models without name/title fields
-      const [data, total] = await Promise.all([
-        this.repository.findAll({ skip: (page - 1) * limit, take: limit }),
-        this.repository.count()
-      ]);
-      return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
-    }
+    const [data, total] = await Promise.all([
+      this.repository.findAll({ skip: (page - 1) * limit, take: limit, where }),
+      this.repository.count(where)
+    ]);
+    return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
   async getById(id: string) {
@@ -43,11 +35,40 @@ export class RoleService {
   }
 
   async create(data: any) {
-    return await this.repository.create(data);
+    const { permissions, ...roleData } = data;
+    const role = await this.repository.create(roleData);
+    
+    if (permissions && Array.isArray(permissions) && permissions.length > 0) {
+      await prisma.rolePermission.createMany({
+        data: permissions.map((permId: string) => ({
+          roleId: role.id,
+          permissionId: permId
+        }))
+      });
+    }
+    
+    return this.getById(role.id);
   }
 
   async update(id: string, data: any) {
-    return await this.repository.update(id, data);
+    const { permissions, ...roleData } = data;
+    const role = await this.repository.update(id, roleData);
+    
+    if (permissions && Array.isArray(permissions)) {
+      await prisma.rolePermission.deleteMany({
+        where: { roleId: id }
+      });
+      if (permissions.length > 0) {
+        await prisma.rolePermission.createMany({
+          data: permissions.map((permId: string) => ({
+            roleId: id,
+            permissionId: permId
+          }))
+        });
+      }
+    }
+    
+    return this.getById(id);
   }
 
   async delete(id: string) {

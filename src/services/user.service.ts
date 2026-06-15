@@ -64,7 +64,7 @@ export class UserService {
   }
 
   async createUser(data: any, adminId?: string) {
-    const { email, password, firstName, lastName, phone, roleId, ...otherData } = data;
+    const { email, password, firstName, lastName, phone, roleId, roleIds, ...otherData } = data;
     
     if (email) {
       const existing = await this.repository.findByEmail(email);
@@ -82,11 +82,17 @@ export class UserService {
       ...otherData
     };
 
-    if (roleId) {
-      payload.roles = { create: { roleId } };
-    }
-
     const newUser = await this.repository.create(payload);
+
+    if (roleIds && Array.isArray(roleIds)) {
+      if (roleIds.length > 0) {
+        await prisma.userRole.createMany({
+          data: roleIds.map((rid: string) => ({ userId: newUser.id, roleId: rid }))
+        });
+      }
+    } else if (roleId) {
+      await prisma.userRole.create({ data: { userId: newUser.id, roleId } });
+    }
 
     if (adminId) {
       await prisma.auditLog.create({
@@ -101,7 +107,7 @@ export class UserService {
     const existing = await this.repository.findById(id);
     if (!existing) throw new Error('User not found');
 
-    const { roleId, password, ...updateData } = data;
+    const { roleId, roleIds, password, ...updateData } = data;
     const payload: any = { ...updateData };
 
     if (password) {
@@ -109,7 +115,14 @@ export class UserService {
     }
 
     // Since we are overriding completely, handle role update separately
-    if (roleId) {
+    if (roleIds && Array.isArray(roleIds)) {
+      await prisma.userRole.deleteMany({ where: { userId: id } });
+      if (roleIds.length > 0) {
+        await prisma.userRole.createMany({
+          data: roleIds.map((rid: string) => ({ userId: id, roleId: rid }))
+        });
+      }
+    } else if (roleId) {
       await prisma.userRole.deleteMany({ where: { userId: id } });
       await prisma.userRole.create({ data: { userId: id, roleId } });
     }

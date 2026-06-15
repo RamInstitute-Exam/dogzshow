@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { AuditLogger } from '../utils/audit.logger';
 import prisma from '../prisma';
 
 export const uploadMedia = async (req: Request, res: Response): Promise<void> => {

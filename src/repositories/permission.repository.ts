@@ -9,17 +9,27 @@ export class PermissionRepository {
     orderBy?: Prisma.PermissionOrderByWithRelationInput;
   }) {
     const { skip, take, where, orderBy } = params;
+    const finalWhere: Prisma.PermissionWhereInput = {
+      deletedAt: null,
+      ...where
+    };
     return prisma.permission.findMany({
-      skip, take, where, orderBy
+      skip, take, where: finalWhere, orderBy
     });
   }
 
   async count(where?: Prisma.PermissionWhereInput) {
-    return prisma.permission.count({ where });
+    const finalWhere: Prisma.PermissionWhereInput = {
+      deletedAt: null,
+      ...where
+    };
+    return prisma.permission.count({ where: finalWhere });
   }
 
   async findById(id: string) {
-    return prisma.permission.findUnique({ where: { id } });
+    return prisma.permission.findFirst({
+      where: { id, deletedAt: null }
+    });
   }
 
   async create(data: Prisma.PermissionCreateInput | Prisma.PermissionUncheckedCreateInput) {

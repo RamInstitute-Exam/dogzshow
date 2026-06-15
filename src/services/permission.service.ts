@@ -1,4 +1,5 @@
 import { PermissionRepository } from '../repositories/permission.repository';
+import prisma from '../prisma';
 
 export class PermissionService {
   private repository: PermissionRepository;
@@ -7,33 +8,55 @@ export class PermissionService {
     this.repository = new PermissionRepository();
   }
 
+  private async ensurePermissionsSeeded() {
+    const count = await this.repository.count();
+    if (count === 0) {
+      const modules = [
+        'users', 'roles', 'permissions', 'dogs', 'owners', 'breeds', 'fci-groups', 
+        'show-classes', 'clubs', 'judges', 'events', 'registrations', 'payments', 
+        'winners', 'banners', 'cms', 'gallery', 'videos', 'faqs', 'blogs', 
+        'notifications', 'reports', 'support-tickets', 'downloads', 'settings'
+      ];
+      const actions = ['view', 'create', 'edit', 'delete', 'export', 'approve'];
+      const dataToCreate = [];
+      for (const mod of modules) {
+        for (const act of actions) {
+          dataToCreate.push({
+            name: `${mod}:${act}`,
+            description: `Can ${act} ${mod}`
+          });
+        }
+      }
+      await prisma.permission.createMany({
+        data: dataToCreate
+      });
+    }
+  }
+
   async getAll(query: any) {
-    const page = parseInt(query.page) || 1;
-    const limit = parseInt(query.limit) || 10;
-    
-    let where: any = {};
+    await this.ensurePermissionsSeeded();
+
+    let where: any = { deletedAt: null };
     if (query.search) {
-      // basic fallback search implementation
       where.OR = [
         { name: { contains: query.search } },
-        { title: { contains: query.search } }
-      ].filter(x => Object.keys(x).length > 0);
+        { description: { contains: query.search } }
+      ];
     }
 
-    try {
-      const [data, total] = await Promise.all([
-        this.repository.findAll({ skip: (page - 1) * limit, take: limit, where }),
-        this.repository.count(where)
-      ]);
-      return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
-    } catch (e) {
-      // Fallback for models without name/title fields
-      const [data, total] = await Promise.all([
-        this.repository.findAll({ skip: (page - 1) * limit, take: limit }),
-        this.repository.count()
-      ]);
-      return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
+    if (query.all === 'true' || query.limit === 'all') {
+      const data = await this.repository.findAll({ where });
+      return { data, total: data.length, page: 1, limit: data.length, totalPages: 1 };
     }
+
+    const page = parseInt(query.page) || 1;
+    const limit = parseInt(query.limit) || 10;
+
+    const [data, total] = await Promise.all([
+      this.repository.findAll({ skip: (page - 1) * limit, take: limit, where }),
+      this.repository.count(where)
+    ]);
+    return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
   async getById(id: string) {

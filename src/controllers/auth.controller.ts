@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import prisma from '../prisma';
+import { AuditLogger } from '../utils/audit.logger';
 
 const generateTokens = (userId: string) => {
   const accessToken = jwt.sign({ userId }, process.env.JWT_SECRET || 'secret', { expiresIn: '1d' });
@@ -157,6 +158,9 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     });
 
     const tokens = generateTokens(user.id);
+    (req as any).user = { id: user.id };
+    await AuditLogger.log(req, 'REGISTER', 'USER', user.id, null, { email: user.email });
+    
     res.status(201).json({ message: 'User registered successfully', tokens, user: { id: user.id, email: user.email, firstName: user.firstName, lastName: user.lastName } });
   } catch (error) {
     console.error(error);
@@ -190,6 +194,9 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     }
 
     const tokens = generateTokens(user.id);
+    (req as any).user = { id: user.id };
+    await AuditLogger.log(req, 'LOGIN', 'USER', user.id, null, { email: user.email });
+
     res.status(200).json({ 
       message: 'Login successful', 
       tokens, 
@@ -261,6 +268,9 @@ export const socialLogin = async (req: Request, res: Response): Promise<void> =>
     }
 
     const tokens = generateTokens(user.id);
+    (req as any).user = { id: user.id };
+    await AuditLogger.log(req, 'SOCIAL_LOGIN', 'USER', user.id, null, { email: user.email, provider });
+
     res.status(200).json({ 
       message: 'Login successful', 
       tokens, 

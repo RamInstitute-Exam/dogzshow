@@ -1,13 +1,12 @@
 import { Request, Response } from 'express';
-import { AuditLogger } from '../utils/audit.logger';
-import { FAQService } from '../services/fAQ.service';
+import { SupportService } from '../services/support.service';
 
-const service = new FAQService();
+const service = new SupportService();
 
 export const getAll = async (req: Request, res: Response): Promise<void> => {
   try {
     const result = await service.getAll(req.query);
-    res.status(200).json({ success: true, message: 'Retrieved successfully', ...result });
+    res.status(200).json({ success: true, message: 'Support tickets retrieved successfully', ...result });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -24,9 +23,10 @@ export const getById = async (req: Request, res: Response): Promise<void> => {
 
 export const create = async (req: Request, res: Response): Promise<void> => {
   try {
-    const data = await service.create(req.body);
-    await AuditLogger.log(req, 'CREATE', 'FAQ', data.id, null, data);
-    res.status(201).json({ success: true, message: 'Created successfully', data });
+    const userId = (req as any).user?.id || req.body.userId || null;
+    const ticketData = { ...req.body, userId };
+    const data = await service.create(ticketData);
+    res.status(201).json({ success: true, message: 'Support ticket created successfully', data });
   } catch (error: any) {
     res.status(400).json({ success: false, message: error.message });
   }
@@ -35,8 +35,7 @@ export const create = async (req: Request, res: Response): Promise<void> => {
 export const update = async (req: Request, res: Response): Promise<void> => {
   try {
     const data = await service.update(req.params.id as string, req.body);
-    await AuditLogger.log(req, 'UPDATE', 'FAQ', data.id, null, data);
-    res.status(200).json({ success: true, message: 'Updated successfully', data });
+    res.status(200).json({ success: true, message: 'Support ticket updated successfully', data });
   } catch (error: any) {
     res.status(400).json({ success: false, message: error.message });
   }
@@ -45,8 +44,7 @@ export const update = async (req: Request, res: Response): Promise<void> => {
 export const remove = async (req: Request, res: Response): Promise<void> => {
   try {
     await service.delete(req.params.id as string);
-    await AuditLogger.log(req, 'DELETE', 'FAQ', req.params.id as string, null, null);
-    res.status(200).json({ success: true, message: 'Deleted successfully' });
+    res.status(200).json({ success: true, message: 'Support ticket deleted successfully' });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -55,8 +53,7 @@ export const remove = async (req: Request, res: Response): Promise<void> => {
 export const bulkRemove = async (req: Request, res: Response): Promise<void> => {
   try {
     await service.bulkDelete(req.body.ids);
-    await AuditLogger.log(req, 'BULK_DELETE', 'FAQ', null, null, { ids: req.body.ids });
-    res.status(200).json({ success: true, message: 'Bulk deleted successfully' });
+    res.status(200).json({ success: true, message: 'Support tickets bulk deleted successfully' });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
