@@ -15,12 +15,12 @@ const app: Express = express();
 
 // Security and Rate Limiting
 app.use(helmet());
-const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: process.env.NODE_ENV === 'development' ? 5000 : 100, // relax limit in dev
-  message: 'Too many requests from this IP, please try again later.'
-});
-app.use('/api/', apiLimiter);
+// const apiLimiter = rateLimit({
+//   windowMs: 15 * 60 * 1000, // 15 minutes
+//   max: process.env.NODE_ENV === 'development' ? 5000 : 100, // relax limit in dev
+//   message: 'Too many requests from this IP, please try again later.'
+// });
+// app.use('/api/', apiLimiter);
 
 // Middleware
 const allowedOrigins = [
@@ -31,13 +31,7 @@ const allowedOrigins = [
 
 app.use(
   cors({
-    origin: function (origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
+    origin: true,
     credentials: true,
   })
 );

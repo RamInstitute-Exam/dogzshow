@@ -38,6 +38,30 @@ import clubRoutes from './club.routes';
 
 const router = Router();
 
+// Publicly accessible endpoints (prefix: /api/v1/public)
+const publicRouter = Router();
+publicRouter.use('/cms', cmsRoutes);
+publicRouter.use('/menus', menuRoutes);
+publicRouter.use('/homepage-banners', homepageBannerRoutes);
+publicRouter.use('/page-banners', pageBannerRoutes);
+publicRouter.use('/dogs', dogRoutes);
+publicRouter.use('/events', eventRoutes);
+publicRouter.use('/clubs', clubRoutes);
+publicRouter.use('/judges', judgeRoutes);
+publicRouter.use('/winners', winnerRoutes);
+publicRouter.use('/gallery', galleryRoutes);
+publicRouter.use('/sponsors', sponsorRoutes);
+publicRouter.use('/testimonials', testimonialRoutes);
+publicRouter.use('/fci-groups', fCIGroupRoutes);
+publicRouter.use('/groups', fCIGroupRoutes);
+publicRouter.use('/breeds', breedRoutes);
+publicRouter.use('/blogs', blogRoutes);
+publicRouter.use('/media', mediaGalleryRoutes);
+publicRouter.use('/winner-tags', winnerTagRoutes);
+
+router.use('/public', publicRouter);
+
+// Existing routes (for dashboard/admin and compatibility)
 router.use('/cms', cmsRoutes);
 router.use('/menus', menuRoutes);
 router.use('/homepage-banners', homepageBannerRoutes);

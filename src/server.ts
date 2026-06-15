@@ -2,6 +2,18 @@ import fs from 'fs';
 import path from 'path';
 import dotenv from 'dotenv';
 
+// Global Exception/Rejection Loggers for Render debugging
+process.on('uncaughtException', (err) => {
+  console.error('🔥 UNCAUGHT EXCEPTION CRASH DETECTED:');
+  console.error(err.stack || err);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('🔥 UNHANDLED REJECTION DETECTED at:', promise, 'reason:', reason);
+});
+
+
 // STEP 1 & 10: Load dotenv based on NODE_ENV
 const nodeEnv = process.env.NODE_ENV || 'development';
 const envPaths = [
@@ -26,9 +38,12 @@ if (!envLoaded) {
 // STEP 5: Default NODE_ENV
 process.env.NODE_ENV = process.env.NODE_ENV || 'development';
 
-// STEP 6: Default FRONTEND_URL in dev
-if (process.env.NODE_ENV === 'development' && !process.env.FRONTEND_URL) {
-  process.env.FRONTEND_URL = 'http://localhost:3000';
+// STEP 6: Default FRONTEND_URL and optional envs
+if (!process.env.FRONTEND_URL) {
+  process.env.FRONTEND_URL = 'https://juztdog.web.app';
+}
+if (!process.env.JWT_REFRESH_SECRET) {
+  process.env.JWT_REFRESH_SECRET = process.env.JWT_SECRET || 'juztdog_refresh_secret_fallback_key';
 }
 
 // STEP 3 & 4: Validate every required variable before importing app
@@ -37,8 +52,6 @@ const requiredEnvs = [
   'PORT',
   'DATABASE_URL',
   'JWT_SECRET',
-  'JWT_REFRESH_SECRET',
-  'FRONTEND_URL',
   'RAZORPAY_KEY_ID',
   'RAZORPAY_KEY_SECRET'
 ];
