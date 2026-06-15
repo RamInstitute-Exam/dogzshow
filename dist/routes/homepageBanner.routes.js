@@ -4,6 +4,7 @@ const express_1 = require("express");
 const homepageBanner_controller_1 = require("../controllers/homepageBanner.controller");
 const auth_middleware_1 = require("../middlewares/auth.middleware");
 const router = (0, express_1.Router)();
+router.get('/public', homepageBanner_controller_1.getAll);
 router.get('/', homepageBanner_controller_1.getAll);
 router.get('/:id', homepageBanner_controller_1.getById);
 router.post('/', auth_middleware_1.authenticate, (0, auth_middleware_1.authorize)(['Super Admin', 'Admin']), homepageBanner_controller_1.create);

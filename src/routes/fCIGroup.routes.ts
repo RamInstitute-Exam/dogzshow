@@ -4,8 +4,9 @@ import { authenticate, authorize } from '../middlewares/auth.middleware';
 
 const router = Router();
 
-router.get('/', getAll); // Public endpoint for homepage
-router.get('/:id', authenticate, getById);
+router.get('/public', getAll);
+router.get('/', getAll);
+router.get('/:id', getById);
 router.post('/', authenticate, authorize(['Super Admin', 'Admin']), create);
 router.put('/:id', authenticate, authorize(['Super Admin', 'Admin']), update);
 router.delete('/:id', authenticate, authorize(['Super Admin', 'Admin']), remove);

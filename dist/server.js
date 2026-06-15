@@ -31,9 +31,7 @@ for (const envPath of envPaths) {
 }
 // STEP 9: Check if .env was found
 if (!envLoaded) {
-    console.error('❌ .env file not found.');
-    console.error('Expected location:\nbackend/.env');
-    process.exit(1);
+    console.warn('⚠️ .env file not found, using system environment variables.');
 }
 // STEP 5: Default NODE_ENV
 process.env.NODE_ENV = process.env.NODE_ENV || 'development';

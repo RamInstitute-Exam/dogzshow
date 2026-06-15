@@ -4,6 +4,7 @@ import { authenticate, authorize } from '../middlewares/auth.middleware';
 
 const router = Router();
 
+router.get('/public', getAll);
 router.get('/', getAll);
 router.get('/:id', getById);
 router.post('/', authenticate, authorize(['Super Admin', 'Admin']), create);
