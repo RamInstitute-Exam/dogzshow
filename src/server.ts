@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import dotenv from 'dotenv';
-
+dotenv.config();
 // Global Exception/Rejection Loggers for Render debugging
 process.on('uncaughtException', (err) => {
   console.error('🔥 UNCAUGHT EXCEPTION CRASH DETECTED:');
@@ -90,40 +90,31 @@ import prisma from './prisma';
 const PORT = process.env.PORT || 5001;
 
 async function bootstrap() {
-  let dbStatus = 'Disconnected';
-  try {
-    // STEP 3 (Initialization): Connect database
-    await prisma.$connect();
-    await prisma.$queryRaw`SELECT 1`;
-    dbStatus = 'Connected';
-  } catch (error) {
-    console.error('❌ FATAL ERROR: Database connection failed.');
-    console.error(error);
-    process.exit(1);
-  }
-
-  // STEP 4, 5, 6, 7 are handled inside app.ts and services
-
-  // STEP 8: Start HTTP server and log output
+  // STEP 8: Start HTTP server immediately and log output
   app.listen(PORT, () => {
     console.log('=====================================');
     console.log('🚀 JuzDog Backend');
     console.log('=====================================');
     console.log('✓ Environment Loaded');
     console.log('✓ Environment Validated');
-    console.log('✓ Database Connected');
-    console.log('✓ Redis Connected');
-    console.log('✓ RBAC Initialized');
-    console.log('✓ Scheduler Started');
-    console.log('✓ Email Service Initialized');
-    console.log('✓ Razorpay Initialized');
-    console.log('✓ File Upload Service Ready');
-    console.log('✓ API Routes Loaded');
+    console.log('✓ Express Server Initialized');
     console.log('=====================================');
     console.log(`Server running on:\nhttp://localhost:${PORT}\n`);
     console.log(`Environment:\n${process.env.NODE_ENV}`);
     console.log('=====================================\n');
   });
+
+  // STEP 3 (Initialization): Connect database in background
+  try {
+    console.log('Database: Connecting to database...');
+    await prisma.$connect();
+    await prisma.$queryRaw`SELECT 1`;
+    console.log('✓ Database: Connected successfully');
+  } catch (error) {
+    console.error('❌ Database: Connection failed.');
+    console.error(error);
+    // Do not crash the process; keeping it running allows diagnostic health checks to load
+  }
 }
 
 bootstrap();
