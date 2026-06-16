@@ -74,3 +74,27 @@ export const bulkRemove = async (req: Request, res: Response): Promise<void> => 
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+export const getBySlug = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const data = await service.getBySlug(req.params.slug as string);
+    if (!data) {
+      res.status(404).json({ success: false, message: 'Club not found' });
+      return;
+    }
+    res.status(200).json({ success: true, data });
+  } catch (error: any) {
+    res.status(404).json({ success: false, message: error.message });
+  }
+};
+
+export const bulkUpload = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const data = await service.bulkUpload(req.body);
+    memoryCache.clear();
+    await AuditLogger.log(req, 'BULK_UPLOAD', 'CLUB', null, null, { itemsCount: req.body?.length });
+    res.status(201).json({ success: true, message: 'Bulk uploaded successfully', data });
+  } catch (error: any) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};

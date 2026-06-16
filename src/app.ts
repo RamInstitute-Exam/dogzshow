@@ -10,6 +10,7 @@ import path from 'path';
 // Import central router
 import apiRoutes, { publicRouter } from './routes/index';
 import prisma from './prisma';
+import { publicHeroBannerRouter, adminHeroBannerRouter } from './routes/heroBanner.routes';
 
 const app: Express = express();
 
@@ -72,6 +73,8 @@ app.get('/api/health', async (req: Request, res: Response) => {
 });
 
 // API Routes
+app.use('/api/banners', publicHeroBannerRouter);
+app.use('/api/admin/banners', adminHeroBannerRouter);
 app.use('/api/v1', apiRoutes);
 app.use('/api/public', publicRouter);
 

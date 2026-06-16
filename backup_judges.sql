@@ -1,0 +1,2 @@
+CREATE TABLE judges_backup AS SELECT * FROM "Judge";
+TRUNCATE TABLE "Judge" CASCADE;

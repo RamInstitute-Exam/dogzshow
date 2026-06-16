@@ -35,6 +35,7 @@ import menuRoutes from './menu.routes';
 import sponsorRoutes from './sponsor.routes';
 import testimonialRoutes from './testimonial.routes';
 import clubRoutes from './club.routes';
+import { publicHeroBannerRouter, adminHeroBannerRouter } from './heroBanner.routes';
 
 import { getHomeCms } from '../controllers/cms.controller';
 
@@ -70,6 +71,8 @@ router.use('/cms', cmsRoutes);
 router.use('/menus', menuRoutes);
 router.use('/homepage-banners', homepageBannerRoutes);
 router.use('/page-banners', pageBannerRoutes);
+router.use('/banners', publicHeroBannerRouter);
+router.use('/admin/banners', adminHeroBannerRouter);
 
 router.use('/auth', authRoutes);
 router.use('/users', userRoutes);

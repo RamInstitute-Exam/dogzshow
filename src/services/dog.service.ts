@@ -109,6 +109,15 @@ export class DogService {
     if (ownerConnectOrCreate) payload.owner = ownerConnectOrCreate;
     if (breederConnectOrCreate) payload.breeder = breederConnectOrCreate;
 
+    if (data.certificateFrontUrl) {
+      payload.kciCertificate = {
+        create: {
+          url: data.certificateFrontUrl,
+          status: 'PENDING'
+        }
+      };
+    }
+
     const newDog = await this.repository.create(payload);
 
     // Audit Log Creation

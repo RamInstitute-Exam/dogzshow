@@ -296,6 +296,7 @@ model KCICertificate {
   url           String
   ocrConfidence Float?
   extractedData Json?
+  status        String @default("PENDING") // PENDING, APPROVED, REJECTED
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -306,18 +307,29 @@ model KCICertificate {
 // ==============================
 
 model Club {
-  id          String   @id @default(uuid())
-  name        String
-  logoUrl     String?
-  address     String?
-  secretary   String?
-  president   String?
-  email       String?
-  phone       String?
-  website     String?
-  description String?
-  history     String?
-  isActive    Boolean  @default(true)
+  id                 String   @id @default(uuid())
+  name               String
+  logoUrl            String?
+  address            String?
+  city               String?
+  state              String?
+  country            String?
+  secretary          String?
+  president          String?
+  email              String?  @unique
+  phone              String?
+  website            String?
+  facebook           String?
+  instagram          String?
+  description        String?  @db.Text
+  history            String?  @db.Text
+  registrationNumber String?
+  isFeatured         Boolean  @default(false)
+  isActive           Boolean  @default(true)
+  
+  slug               String?  @unique
+  seoTitle           String?
+  seoDescription     String?  @db.Text
   
   events      Event[]
 
@@ -406,8 +418,18 @@ model EventCategory {
 model Judge {
   id             String  @id @default(uuid())
   name           String
+  email          String? @unique
+  phone          String?
+  gender         String?
+  dob            String?
+  address        String?
+  city           String?
+  state          String?
   country        String?
   experience     String?
+  specialization String?
+  registrationNumber String?
+  certifications String?
   qualifications String? @db.Text
   groups         String? // e.g. "Groups 1, 2, 8"
   bio            String? @db.Text
@@ -417,6 +439,10 @@ model Judge {
   sortOrder      Int     @default(0)
   isFeatured     Boolean @default(false)
   status         String  @default("ACTIVE") // ACTIVE, INACTIVE
+
+  slug           String? @unique
+  seoTitle       String?
+  seoDescription String? @db.Text
 
   assignments JudgeAssignment[]
 
@@ -671,6 +697,91 @@ model MediaGallery {
   featured   Boolean  @default(false)
 
   createdAt  DateTime @default(now())
+}
+
+model MediaCategory {
+  id     String @id @default(uuid())
+  name   String
+  slug   String @unique
+  status String @default("ACTIVE")
+
+  albums MediaAlbum[]
+  images MediaImage[]
+  videos MediaVideo[]
+
+  @@map("media_categories")
+}
+
+model MediaAlbum {
+  id         String  @id @default(uuid())
+  categoryId String? @map("category_id")
+  title      String
+  slug       String  @unique
+  coverImage String? @map("cover_image")
+  status     String  @default("ACTIVE")
+
+  category MediaCategory? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  images   MediaImage[]
+  videos   MediaVideo[]
+
+  @@index([categoryId])
+  @@map("media_albums")
+}
+
+model MediaImage {
+  id           String   @id @default(uuid())
+  albumId      String?  @map("album_id")
+  categoryId   String   @map("category_id")
+  title        String
+  slug         String   @unique
+  description  String?  @db.Text
+  imageUrl     String   @map("image_url")
+  thumbnailUrl String?  @map("thumbnail_url")
+  altText      String?  @map("alt_text")
+  featured     Boolean  @default(false)
+  views        Int      @default(0)
+  likes        Int      @default(0)
+  status       String   @default("ACTIVE")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  album    MediaAlbum?   @relation(fields: [albumId], references: [id], onDelete: SetNull)
+  category MediaCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@index([slug])
+  @@index([featured])
+  @@index([status])
+  @@index([createdAt])
+  @@index([categoryId])
+  @@index([albumId])
+  @@map("media_images")
+}
+
+model MediaVideo {
+  id           String   @id @default(uuid())
+  albumId      String?  @map("album_id")
+  categoryId   String   @map("category_id")
+  title        String
+  slug         String   @unique
+  description  String?  @db.Text
+  thumbnailUrl String?  @map("thumbnail_url")
+  videoUrl     String   @map("video_url")
+  duration     String?
+  views        Int      @default(0)
+  likes        Int      @default(0)
+  featured     Boolean  @default(false)
+  status       String   @default("ACTIVE")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  album    MediaAlbum?   @relation(fields: [albumId], references: [id], onDelete: SetNull)
+  category MediaCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@index([slug])
+  @@index([featured])
+  @@index([status])
+  @@index([createdAt])
+  @@index([categoryId])
+  @@index([albumId])
+  @@map("media_videos")
 }
 
 model EventGallery {
@@ -1001,3 +1112,24 @@ model SupportTicket {
   updatedAt   DateTime  @default(now()) @updatedAt
   deletedAt   DateTime?
 }
+
+model HeroBanner {
+  id           String    @id @default(uuid())
+  title        String
+  subtitle     String?   @db.Text
+  desktopImage String    @map("desktop_image")
+  mobileImage  String?   @map("mobile_image")
+  buttonText   String?   @map("button_text")
+  buttonLink   String?   @map("button_link")
+  displayOrder Int       @default(0) @map("display_order")
+  isActive     Boolean   @default(true) @map("is_active")
+  startDate    DateTime? @map("start_date")
+  endDate      DateTime? @map("end_date")
+  seoAltText   String?   @map("seo_alt_text")
+  status       String?   @default("ACTIVE")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  @@map("hero_banners")
+}
+

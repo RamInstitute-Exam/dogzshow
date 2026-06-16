@@ -77,7 +77,8 @@ async function seedAdminData() {
     { name: 'Dogs', url: '/admin/dogs', icon: 'Dog', position: 'ADMIN_SIDEBAR', displayOrder: 7 },
     { name: 'Payments', url: '/admin/payments', icon: 'CreditCard', position: 'ADMIN_SIDEBAR', displayOrder: 8 },
     { name: 'Reports', url: '/admin/reports', icon: 'FileText', position: 'ADMIN_SIDEBAR', displayOrder: 9 },
-    { name: 'Settings', url: '/admin/settings', icon: 'Settings', position: 'ADMIN_SIDEBAR', displayOrder: 10 }
+    { name: 'Settings', url: '/admin/settings', icon: 'Settings', position: 'ADMIN_SIDEBAR', displayOrder: 10 },
+    { name: 'Banners', url: '/admin/banners', icon: 'Image', position: 'ADMIN_SIDEBAR', displayOrder: 11 }
   ];
 
   const createdMenus = [];
