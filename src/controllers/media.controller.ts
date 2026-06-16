@@ -72,14 +72,81 @@ export const uploadPhoto = async (req: Request, res: Response): Promise<any> => 
 
 export const getPhotos = async (req: Request, res: Response) => {
   try {
-    const photos = await prisma.mediaPhoto.findMany({
-      include: {
-        album: true,
-        category: true,
-      },
-      orderBy: { createdAt: 'desc' },
+    const { featured, limit, page, search, category, album } = req.query;
+
+    const where: any = { status: 'ACTIVE' };
+
+    if (featured === 'true') {
+      where.featured = true;
+    } else if (featured === 'false') {
+      where.featured = false;
+    }
+
+    if (category && category !== 'all' && category !== 'All') {
+      where.category = {
+        OR: [
+          { slug: category as string },
+          { id: category as string }
+        ]
+      };
+    }
+
+    if (album && album !== 'all' && album !== 'All') {
+      where.album = {
+        OR: [
+          { slug: album as string },
+          { id: album as string }
+        ]
+      };
+    }
+
+    if (search) {
+      where.OR = [
+        { title: { contains: search as string, mode: 'insensitive' } },
+        { description: { contains: search as string, mode: 'insensitive' } },
+        { photographer: { contains: search as string, mode: 'insensitive' } },
+        { location: { contains: search as string, mode: 'insensitive' } },
+        { breed: { contains: search as string, mode: 'insensitive' } },
+      ];
+    }
+
+    const take = limit ? parseInt(limit as string, 10) : undefined;
+    const skip = page && limit ? (parseInt(page as string, 10) - 1) * take! : undefined;
+
+    const [items, total] = await Promise.all([
+      prisma.mediaPhoto.findMany({
+        where,
+        include: {
+          album: true,
+          category: true,
+        },
+        orderBy: { createdAt: 'desc' },
+        take,
+        skip,
+      }),
+      prisma.mediaPhoto.count({ where }),
+    ]);
+
+    const mappedItems = items.map(photo => {
+      return {
+        ...photo,
+        imageUrl: photo.cdnUrl,
+        s3Url: photo.cdnUrl,
+        album: photo.album || null,
+        category: photo.category || null,
+      };
     });
-    res.status(200).json(photos);
+
+    const totalPages = take ? Math.ceil(total / take) : 1;
+
+    res.status(200).json({
+      success: true,
+      data: mappedItems,
+      items: mappedItems,
+      total,
+      totalPages,
+      page: page ? parseInt(page as string, 10) : 1
+    });
   } catch (error) {
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -93,7 +160,18 @@ export const getFeaturedPhotos = async (req: Request, res: Response) => {
       orderBy: { createdAt: 'desc' },
       take: 8,
     });
-    res.status(200).json(photos);
+
+    const mappedPhotos = photos.map(photo => ({
+      ...photo,
+      imageUrl: photo.cdnUrl,
+      s3Url: photo.cdnUrl,
+    }));
+
+    res.status(200).json({
+      success: true,
+      data: mappedPhotos,
+      items: mappedPhotos,
+    });
   } catch (error) {
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -117,7 +195,13 @@ export const getPhotoBySlug = async (req: Request, res: Response): Promise<any> 
       data: { views: { increment: 1 } },
     }).catch(console.error);
 
-    res.status(200).json(photo);
+    const mappedPhoto = {
+      ...photo,
+      imageUrl: photo.cdnUrl,
+      s3Url: photo.cdnUrl,
+    };
+
+    res.status(200).json({ success: true, data: mappedPhoto, ...mappedPhoto });
   } catch (error) {
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -201,11 +285,68 @@ export const uploadVideo = async (req: Request, res: Response): Promise<any> => 
 
 export const getVideos = async (req: Request, res: Response) => {
   try {
-    const videos = await prisma.mediaVideo.findMany({
-      include: { category: true },
-      orderBy: { createdAt: 'desc' },
+    const { featured, limit, page, search, category } = req.query;
+
+    const where: any = { status: 'ACTIVE' };
+
+    if (featured === 'true') {
+      where.featured = true;
+    } else if (featured === 'false') {
+      where.featured = false;
+    }
+
+    if (category && category !== 'all' && category !== 'All') {
+      where.category = {
+        OR: [
+          { slug: category as string },
+          { id: category as string }
+        ]
+      };
+    }
+
+    if (search) {
+      where.OR = [
+        { title: { contains: search as string, mode: 'insensitive' } },
+        { description: { contains: search as string, mode: 'insensitive' } },
+        { breed: { contains: search as string, mode: 'insensitive' } },
+        { location: { contains: search as string, mode: 'insensitive' } }
+      ];
+    }
+
+    const take = limit ? parseInt(limit as string, 10) : undefined;
+    const skip = page && limit ? (parseInt(page as string, 10) - 1) * take! : undefined;
+
+    const [items, total] = await Promise.all([
+      prisma.mediaVideo.findMany({
+        where,
+        include: { category: true },
+        orderBy: { createdAt: 'desc' },
+        take,
+        skip,
+      }),
+      prisma.mediaVideo.count({ where }),
+    ]);
+
+    const mappedItems = items.map(video => {
+      return {
+        ...video,
+        videoUrl: video.cdnUrl,
+        s3VideoUrl: video.cdnUrl,
+        thumbnailUrl: video.thumbnailUrl || video.cdnUrl,
+        category: video.category || null,
+      };
     });
-    res.status(200).json(videos);
+
+    const totalPages = take ? Math.ceil(total / take) : 1;
+
+    res.status(200).json({
+      success: true,
+      data: mappedItems,
+      items: mappedItems,
+      total,
+      totalPages,
+      page: page ? parseInt(page as string, 10) : 1
+    });
   } catch (error) {
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -217,9 +358,21 @@ export const getFeaturedVideos = async (req: Request, res: Response) => {
       where: { featured: true, status: 'ACTIVE' },
       include: { category: true },
       orderBy: { createdAt: 'desc' },
-      take: 6,
+      take: 8,
     });
-    res.status(200).json(videos);
+
+    const mappedVideos = videos.map(video => ({
+      ...video,
+      videoUrl: video.cdnUrl,
+      s3VideoUrl: video.cdnUrl,
+      thumbnailUrl: video.thumbnailUrl || video.cdnUrl,
+    }));
+
+    res.status(200).json({
+      success: true,
+      data: mappedVideos,
+      items: mappedVideos,
+    });
   } catch (error) {
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -240,7 +393,14 @@ export const getVideoBySlug = async (req: Request, res: Response): Promise<any> 
       data: { views: { increment: 1 } },
     }).catch(console.error);
 
-    res.status(200).json(video);
+    const mappedVideo = {
+      ...video,
+      videoUrl: video.cdnUrl,
+      s3VideoUrl: video.cdnUrl,
+      thumbnailUrl: video.thumbnailUrl || video.cdnUrl,
+    };
+
+    res.status(200).json({ success: true, data: mappedVideo, ...mappedVideo });
   } catch (error) {
     res.status(500).json({ error: 'Internal server error' });
   }
