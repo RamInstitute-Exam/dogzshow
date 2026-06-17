@@ -28,6 +28,8 @@ const allowedOrigins = [
   "http://localhost:3000",
   "http://localhost:3001",
   "https://juztdog.web.app",
+  "https://juzdog.co",
+  "https://www.juzdog.co"
 ];
 
 app.use(

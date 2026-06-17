@@ -7,15 +7,9 @@ const service = new JudgeService();
 
 export const getAll = async (req: Request, res: Response): Promise<void> => {
   try {
-    res.setHeader('Cache-Control', 'public, max-age=300, stale-while-revalidate=60');
-    const cacheKey = `judge:all:${JSON.stringify(req.query)}`;
-    const cached = memoryCache.get(cacheKey);
-    if (cached) {
-      res.status(200).json({ success: true, message: 'Retrieved successfully', ...cached });
-      return;
-    }
+    // Disabled caching to serve fresh database records directly
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     const result = await service.getAll(req.query);
-    memoryCache.set(cacheKey, result, 5 * 60 * 1000); // 5 minutes TTL
     res.status(200).json({ success: true, message: 'Retrieved successfully', ...result });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });

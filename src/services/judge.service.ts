@@ -41,13 +41,13 @@ export class JudgeService {
 
     try {
       const [data, total] = await Promise.all([
-        this.repository.findAll({ skip: (page - 1) * limit, take: limit, where }),
+        this.repository.findAll({ skip: (page - 1) * limit, take: limit, where, orderBy: { createdAt: 'desc' } }),
         this.repository.count(where)
       ]);
       return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
     } catch (e) {
       const [data, total] = await Promise.all([
-        this.repository.findAll({ skip: (page - 1) * limit, take: limit }),
+        this.repository.findAll({ skip: (page - 1) * limit, take: limit, orderBy: { createdAt: 'desc' } }),
         this.repository.count()
       ]);
       return { data, total, page, limit, totalPages: Math.ceil(total / limit) };

@@ -31,27 +31,12 @@ export class JudgeRepository {
   }
 
   async delete(id: string) {
-    // Checking if deletedAt exists on schema, falling back to hard delete if not
-    try {
-      return await (prisma.judge as any).update({
-        where: { id },
-        data: { deletedAt: new Date() }
-      });
-    } catch (e) {
-      return prisma.judge.delete({ where: { id } });
-    }
+    return prisma.judge.delete({ where: { id } });
   }
 
   async bulkDelete(ids: string[]) {
-    try {
-      return await (prisma.judge as any).updateMany({
-        where: { id: { in: ids } },
-        data: { deletedAt: new Date() }
-      });
-    } catch(e) {
-      return prisma.judge.deleteMany({
-        where: { id: { in: ids } }
-      });
-    }
+    return prisma.judge.deleteMany({
+      where: { id: { in: ids } }
+    });
   }
 }
