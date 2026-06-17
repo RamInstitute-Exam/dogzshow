@@ -32,7 +32,7 @@ export const uploadToS3 = (folder: string) => {
       s3: s3Client,
       bucket: BUCKET_NAME,
       contentType: multerS3.AUTO_CONTENT_TYPE,
-      acl: 'public-read', // Make uploaded files publicly accessible
+      acl: 'public-read',
       key: function (req, file, cb) {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
         const ext = path.extname(file.originalname);
